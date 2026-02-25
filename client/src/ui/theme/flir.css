@@ -1,0 +1,5 @@
+.theme-flir {
+    /* FLIR thermal look */
+    filter: grayscale(100%) contrast(150%) brightness(120%) invert(100%);
+    background-color: #ffffff;
+}

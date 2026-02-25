@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+    --color-intel-bg: #030712;
+    --color-intel-panel: #111827;
+    --color-intel-accent: #3b82f6;
+    --color-intel-text: #9ca3af;
+    --color-intel-text-light: #f3f4f6;
+    --color-intel-success: #10b981;
+    --color-intel-danger: #ef4444;
+    --color-intel-warn: #f59e0b;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    background-color: var(--color-intel-bg);
+    color: var(--color-intel-text);
+    overflow: hidden;
+}
