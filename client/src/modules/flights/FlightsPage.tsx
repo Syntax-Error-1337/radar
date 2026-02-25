@@ -11,6 +11,7 @@ import { FlightsToolbar } from './components/FlightsToolbar';
 import { FlightsLeftPanel } from './components/FlightsLeftPanel';
 import { FlightsRightDrawer } from './components/FlightsRightDrawer';
 import { FlightsStatusBar } from './components/FlightsStatusBar';
+import { useThemeStore } from '../../ui/theme/theme.store';
 
 const trackManager = new TrackManager(5);
 
@@ -44,6 +45,7 @@ const iconsPromise = Promise.all(
 
 export const FlightsPage: React.FC = () => {
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
+    const { mapProjection } = useThemeStore();
 
     useEffect(() => {
         if (!imagesReady) {
@@ -58,7 +60,6 @@ export const FlightsPage: React.FC = () => {
     const { filters } = useFlightsStore();
     const { selectedIcao24, setSelectedIcao24, selectedFlight } = useFlightSelection(states);
     const { data: trackHistory } = useFlightTrack(selectedIcao24);
-    const [mapProjection, setMapProjection] = useState<'mercator' | 'globe'>('mercator');
 
     const filteredStates = useMemo(() => {
         return states.filter(s => {
@@ -132,15 +133,6 @@ export const FlightsPage: React.FC = () => {
             <FlightsToolbar />
             <FlightsLeftPanel data={filteredStates} />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
-
-            <div className="absolute top-16 right-96 z-10">
-                <button
-                    onClick={() => setMapProjection(p => p === 'mercator' ? 'globe' : 'mercator')}
-                    className="px-3 py-1 bg-intel-panel/80 hover:bg-intel-panel text-intel-text-light text-[10px] font-bold tracking-widest border border-intel-panel rounded backdrop-blur shadow"
-                >
-                    VIEW: {mapProjection.toUpperCase()}
-                </button>
-            </div>
 
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
