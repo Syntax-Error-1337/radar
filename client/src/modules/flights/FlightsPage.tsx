@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import Map, { Source, Layer } from 'react-map-gl/maplibre';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useFlightsSnapshot } from './hooks/useFlightsSnapshot';
 import { useFlightSelection } from './hooks/useFlightSelection';
@@ -21,13 +21,36 @@ const createColoredAirplane = (color: string) => {
     return `data:image/svg+xml;base64,${btoa(svgString)}`;
 };
 
-const ICONS = {
+const ICON_URLS = {
     'aircraft-white': createColoredAirplane('#ffffff'),
     'aircraft-green': createColoredAirplane('#10b981'),
     'aircraft-orange': createColoredAirplane('#f59e0b'),
 };
 
+const PRELOADED_ICONS: Record<string, HTMLImageElement> = {};
+let iconsLoaded = false;
+const iconsPromise = Promise.all(
+    Object.entries(ICON_URLS).map(([id, url]) => new Promise<void>(resolve => {
+        const img = new Image(24, 24);
+        img.onload = () => {
+            PRELOADED_ICONS[id] = img;
+            resolve();
+        };
+        img.src = url;
+    }))
+).then(() => {
+    iconsLoaded = true;
+});
+
 export const FlightsPage: React.FC = () => {
+    const [imagesReady, setImagesReady] = useState(iconsLoaded);
+
+    useEffect(() => {
+        if (!imagesReady) {
+            iconsPromise.then(() => setImagesReady(true));
+        }
+    }, [imagesReady]);
+
     const { data, isError } = useFlightsSnapshot();
     const states = data?.states || [];
     const timestamp = data?.timestamp || 0;
@@ -35,6 +58,7 @@ export const FlightsPage: React.FC = () => {
     const { filters } = useFlightsStore();
     const { selectedIcao24, setSelectedIcao24, selectedFlight } = useFlightSelection(states);
     const { data: trackHistory } = useFlightTrack(selectedIcao24);
+    const [mapProjection, setMapProjection] = useState<'mercator' | 'globe'>('mercator');
 
     const filteredStates = useMemo(() => {
         return states.filter(s => {
@@ -84,35 +108,24 @@ export const FlightsPage: React.FC = () => {
         }
     };
 
-    const onMapLoad = (e: any) => {
+    const onMapLoad = useCallback((e: any) => {
         const map = e.target;
-        Object.entries(ICONS).forEach(([id, url]) => {
-            if (!map.hasImage(id)) {
-                const img = new Image(24, 24);
-                img.onload = () => {
-                    if (!map.hasImage(id)) {
-                        map.addImage(id, img);
-                    }
-                };
-                img.src = url;
-            }
-        });
-    };
-
-    const onStyleImageMissing = (e: any) => {
-        const id = e.id;
-        const map = e.target;
-        const iconUrl = ICONS[id as keyof typeof ICONS];
-        if (iconUrl && !map.hasImage(id)) {
-            const img = new Image(24, 24);
-            img.onload = () => {
+        if (iconsLoaded) {
+            Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
                 if (!map.hasImage(id)) {
                     map.addImage(id, img);
                 }
-            };
-            img.src = iconUrl;
+            });
         }
-    };
+    }, []);
+
+    const onStyleImageMissing = useCallback((e: any) => {
+        const id = e.id;
+        const map = e.target;
+        if (PRELOADED_ICONS[id] && !map.hasImage(id)) {
+            map.addImage(id, PRELOADED_ICONS[id]);
+        }
+    }, []);
 
     return (
         <div className="absolute inset-0 bg-intel-bg overflow-hidden flex flex-col">
@@ -120,8 +133,18 @@ export const FlightsPage: React.FC = () => {
             <FlightsLeftPanel data={filteredStates} />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
 
+            <div className="absolute top-16 right-96 z-10">
+                <button
+                    onClick={() => setMapProjection(p => p === 'mercator' ? 'globe' : 'mercator')}
+                    className="px-3 py-1 bg-intel-panel/80 hover:bg-intel-panel text-intel-text-light text-[10px] font-bold tracking-widest border border-intel-panel rounded backdrop-blur shadow"
+                >
+                    VIEW: {mapProjection.toUpperCase()}
+                </button>
+            </div>
+
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
+                    key={`map-${mapProjection}`}
                     initialViewState={{
                         longitude: -30,
                         latitude: 40,
@@ -133,8 +156,15 @@ export const FlightsPage: React.FC = () => {
                     cursor={selectedIcao24 ? "pointer" : "crosshair"}
                     onLoad={onMapLoad}
                     onStyleImageMissing={onStyleImageMissing}
+                    projection={mapProjection === 'globe' ? { type: 'globe' } as any : undefined}
+                    scrollZoom={mapProjection !== 'globe'}
+                    dragPitch={mapProjection !== 'globe'}
+                    dragRotate={mapProjection !== 'globe'}
+                    doubleClickZoom={mapProjection !== 'globe'}
                     style={{ width: '100%', height: '100%' }}
                 >
+                    <NavigationControl position="top-right" />
+
                     <Source id="tracks" type="geojson" data={tracksGeoJSON}>
                         {/* Dim track for unselected aircraft */}
                         <Layer
@@ -180,23 +210,25 @@ export const FlightsPage: React.FC = () => {
                         />
                     </Source>
 
-                    <Source id="points" type="geojson" data={pointsGeoJSON}>
-                        <Layer
-                            id="aircraft-points"
-                            type="symbol"
-                            layout={{
-                                'icon-image': [
-                                    'case',
-                                    ['==', ['get', 'icao24'], selectedIcao24 || ''], 'aircraft-white',
-                                    ['boolean', ['get', 'onGround'], false], 'aircraft-orange',
-                                    'aircraft-green'
-                                ],
-                                'icon-size': 0.8,
-                                'icon-rotate': ['get', 'heading'],
-                                'icon-allow-overlap': true,
-                            }}
-                        />
-                    </Source>
+                    {imagesReady && (
+                        <Source id="points" type="geojson" data={pointsGeoJSON}>
+                            <Layer
+                                id="aircraft-points"
+                                type="symbol"
+                                layout={{
+                                    'icon-image': [
+                                        'case',
+                                        ['==', ['get', 'icao24'], selectedIcao24 || ''], 'aircraft-white',
+                                        ['boolean', ['get', 'onGround'], false], 'aircraft-orange',
+                                        'aircraft-green'
+                                    ],
+                                    'icon-size': 0.8,
+                                    'icon-rotate': ['get', 'heading'],
+                                    'icon-allow-overlap': true,
+                                }}
+                            />
+                        </Source>
+                    )}
                 </Map>
             </div>
 
