@@ -2,7 +2,8 @@ import React from 'react';
 import { Panel } from '../../../ui/layout/Panel';
 import type { AircraftState } from '../lib/flights.types';
 import { formatAge } from '../../../utils/time';
-import { X } from 'lucide-react';
+import { X, Camera } from 'lucide-react';
+import { useAircraftPhoto } from '../hooks/useAircraftPhoto';
 
 interface Props {
     flight: AircraftState | null;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
+    const { data: photo, isLoading: photoLoading } = useAircraftPhoto(flight?.icao24);
+
     if (!flight) return null;
 
     return (
@@ -20,6 +23,36 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
                 </div>
 
                 <div className="space-y-6 mt-2 relative">
+
+                    {/* Aircraft Photo */}
+                    <div className="w-full relative min-h-12 flex justify-center border-b border-intel-panel pb-4 mb-2">
+                        {photoLoading ? (
+                            <div className="w-full h-32 bg-intel-panel animate-pulse flex items-center justify-center rounded-sm">
+                                <Camera size={24} className="text-intel-text-light opacity-50" />
+                            </div>
+                        ) : photo ? (
+                            <div className="w-full flex flex-col items-end gap-1">
+                                <img
+                                    src={photo.thumbnail_large.src}
+                                    className="w-full object-cover rounded-sm border border-intel-text-light/20 drop-shadow-md"
+                                    alt={`Aircraft ${flight.registration || flight.icao24}`}
+                                />
+                                <a
+                                    href={photo.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[9px] text-intel-text-light/60 hover:text-intel-text-light font-mono"
+                                >
+                                    © {photo.photographer} / Planespotters.net
+                                </a>
+                            </div>
+                        ) : (
+                            <div className="w-full py-4 flex flex-col items-center justify-center border border-dashed border-intel-text-light/20 rounded-sm">
+                                <Camera size={20} className="text-intel-text-light/40 mb-1" />
+                                <span className="text-[10px] text-intel-text-light/40 font-mono tracking-widest uppercase">No Photo Available</span>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Header Details */}
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs font-mono border-b border-intel-panel pb-2">
