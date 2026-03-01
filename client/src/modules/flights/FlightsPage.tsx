@@ -86,6 +86,17 @@ export const FlightsPage: React.FC = () => {
         }
     }, [imagesReady]);
 
+    // When leaving onboard mode, reset pitch + bearing so 2D view is correct
+    useEffect(() => {
+        if (!onboardMode) {
+            const map = mapRef.current?.getMap();
+            if (map) {
+                map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
+            }
+            setIconScreenPos(null);
+        }
+    }, [onboardMode]);
+
     const { data, isError } = useFlightsSnapshot();
     const states = data?.states || [];
     const timestamp = data?.timestamp || 0;
