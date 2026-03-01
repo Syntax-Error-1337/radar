@@ -104,7 +104,7 @@ export const MaritimePage: React.FC = () => {
     );
 
     // Stable empty FeatureCollection — actual data pushed via setData() below
-    const EMPTY_FC = useRef({ type: 'FeatureCollection' as const, features: [] as never[] }).current;
+    const EMPTY_FC = useMemo(() => ({ type: 'FeatureCollection' as const, features: [] as never[] }), []);
 
     // Push vessel GeoJSON directly to MapLibre at 2 Hz — bypasses React renders entirely.
     // Only rebuilds when dirty (new AIS data arrived); skips the tick otherwise.
