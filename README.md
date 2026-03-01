@@ -258,8 +258,10 @@ client/src/
 
 server/src/
 ├── core/
-│   ├── adsblol.ts        # ADSB.lol polling + 3s TTL cache
-│   ├── aisstream.ts      # AISStream WebSocket service (singleton)
+│   ├── source/
+│   │   ├── adsblol.ts        # ADSB.lol polling + 3s TTL cache
+│   │   ├── aisstream.ts      # AISStream WebSocket service (singleton)
+│   │   └── opensky.ts        # OpenSky fallback logic
 │   ├── aircraft_db.ts    # DuckDB Parquet loader + ICAO24 lookup
 │   └── cache.ts          # Generic TTL cache
 ├── routes/
