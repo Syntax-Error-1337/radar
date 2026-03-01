@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Large data files
+aircraft-database-complete-2025-08.csv
+aircraft-database-complete-2025-08.csv.cache.json
