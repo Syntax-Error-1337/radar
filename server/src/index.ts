@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import flightsRouter from './routes/flights';
+import maritimeRouter from './routes/maritime';
 import { aircraftDb } from './core/aircraft_db';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/flights', flightsRouter);
+app.use('/api/maritime', maritimeRouter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -14,6 +14,7 @@ import { FlightsRightDrawer } from './components/FlightsRightDrawer';
 import { FlightsStatusBar } from './components/FlightsStatusBar';
 import { MapLayerControl } from './components/MapLayerControl';
 import { useThemeStore } from '../../ui/theme/theme.store';
+import { SATELLITE_STYLE, MAP_STYLE_URLS } from '../../lib/mapStyles';
 
 const trackManager = new TrackManager(5);
 
@@ -115,35 +116,18 @@ export const FlightsPage: React.FC = () => {
         });
     }, [states, filters]);
 
-    const satelliteStyle = useMemo(() => ({
-        version: 8,
-        sources: {
-            esri: {
-                type: 'raster',
-                tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-                tileSize: 256
-            }
-        },
-        layers: [{
-            id: 'esri-satellite',
-            type: 'raster',
-            source: 'esri',
-            minzoom: 0,
-            maxzoom: 19
-        }]
-    } as import('maplibre-gl').StyleSpecification), []);
-
     const activeMapStyle = useMemo(() => {
         // Force satellite when in 3D onboard mode so the ground is visible
-        if (onboardMode) return satelliteStyle;
+        if (onboardMode) return SATELLITE_STYLE;
         switch (mapLayer) {
-            case 'light': return 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
-            case 'street': return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-            case 'satellite': return satelliteStyle;
+            case 'light': return MAP_STYLE_URLS.light;
+            case 'street': return MAP_STYLE_URLS.street;
+            case 'satellite': return SATELLITE_STYLE;
+            case 'nautical': return MAP_STYLE_URLS.nautical;
             case 'dark':
-            default: return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+            default: return MAP_STYLE_URLS.dark;
         }
-    }, [mapLayer, onboardMode, satelliteStyle]);
+    }, [mapLayer, onboardMode]);
 
     // Tracks state is now fully handled in requestAnimationFrame loop
     // no need for React state to manage GeoJSON for better perf
@@ -180,14 +164,19 @@ export const FlightsPage: React.FC = () => {
         };
     }, [trackHistory, selectedIcao24]);
 
-    const onClick = (e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
+    const onClick = useCallback((e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
         const feature = e.features?.[0];
         if (feature && feature.properties?.icao24) {
             setSelectedIcao24(feature.properties.icao24);
         } else {
             setSelectedIcao24(null);
         }
-    };
+    }, [setSelectedIcao24]);
+
+    // Memoized counts — avoids two .filter() passes on every render (which at 30 Hz
+    // in the rAF loop means ~3,600 extra iterations/second with 6k flights shown).
+    const airborneCount = useMemo(() => filteredStates.filter(s => !s.onGround).length, [filteredStates]);
+    const onGroundCount = useMemo(() => filteredStates.filter(s => s.onGround).length, [filteredStates]);
 
     const onMapLoad = useCallback((e: { target: import('maplibre-gl').Map }) => {
         const map = e.target;
@@ -352,8 +341,8 @@ export const FlightsPage: React.FC = () => {
             <FlightsToolbar
                 totalCount={states.length}
                 filteredCount={filteredStates.length}
-                airborneCount={filteredStates.filter(s => !s.onGround).length}
-                onGroundCount={filteredStates.filter(s => s.onGround).length}
+                airborneCount={airborneCount}
+                onGroundCount={onGroundCount}
             />
             <FlightsLeftPanel />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
@@ -368,6 +357,7 @@ export const FlightsPage: React.FC = () => {
                         zoom: 3
                     }}
                     mapStyle={activeMapStyle}
+                    styleDiffing={false}
                     interactiveLayerIds={['aircraft-points']}
                     onClick={onClick}
                     onMoveStart={onMoveStart}

@@ -15,13 +15,20 @@ export default defineConfig({
     }
   },
   build: {
+    chunkSizeWarningLimit: 1100, // maplibre is intentionally large; suppress false-positive warning
     rollupOptions: {
       output: {
-        // Split maplibre into its own chunk so it's cached independently from
-        // app code. maplibre-gl is ~700kB minified — keeping it separate
-        // means a single line of app code change doesn't bust this cache entry.
         manualChunks: {
+          // Vendor: cached independently from app code
           maplibre: ['maplibre-gl'],
+          // Page-level splits: each lazy route ships as its own chunk so users
+          // only download the JS for the module they're actually using.
+          'page-flights': [
+            './src/modules/flights/FlightsPage',
+          ],
+          'page-maritime': [
+            './src/modules/maritime/MaritimePage',
+          ],
         }
       }
     }

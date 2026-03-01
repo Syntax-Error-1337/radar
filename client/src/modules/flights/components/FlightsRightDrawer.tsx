@@ -13,7 +13,11 @@ interface Props {
 
 export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
     const { data: photo, isLoading: photoLoading } = useAircraftPhoto(flight?.icao24);
-    const { cameraTrackMode, setCameraTrackMode, onboardMode, setOnboardMode } = useFlightsStore();
+    // Fine-grained selectors — drawer only needs camera/onboard state, not filters or selection.
+    const cameraTrackMode = useFlightsStore(s => s.cameraTrackMode);
+    const setCameraTrackMode = useFlightsStore(s => s.setCameraTrackMode);
+    const onboardMode = useFlightsStore(s => s.onboardMode);
+    const setOnboardMode = useFlightsStore(s => s.setOnboardMode);
 
     if (!flight) return null;
 

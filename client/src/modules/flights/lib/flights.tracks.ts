@@ -31,10 +31,10 @@ export class TrackManager {
         }
 
         // Prune points older than the time window.
-        // Only delete the track when *no* points survive — a single recent point
-        // is valid and should grow on the next update call.
+        // Iterate the Map directly — Array.from() would create a temporary copy of all
+        // entries before the loop begins, wasting memory on every update call.
         const cutoff = currentTimeMs - this.maxAgeMs;
-        for (const [icao, history] of Array.from(this.tracks.entries())) {
+        for (const [icao, history] of this.tracks) {
             const pruned = history.filter(p => p.timestamp > cutoff);
             if (pruned.length === 0) {
                 this.tracks.delete(icao);
@@ -56,23 +56,24 @@ export class TrackManager {
             }
         }
 
-        for (const [icao, history] of this.tracks.entries()) {
-            const currentHistory = [...history];
+        for (const [icao, history] of this.tracks) {
+            // Avoid a spread copy — append the live extrapolated point in-place only if
+            // it's newer than the last stored sample (which it always is during rAF).
             const extra = extraPoints.get(icao);
-
+            const coords: number[][] = history.map(p => [p.lon, p.lat]);
             if (extra) {
-                currentHistory.push(extra);
+                coords.push([extra.lon, extra.lat]);
             }
 
-            if (currentHistory.length > 1) {
+            if (coords.length > 1) {
                 features.push({
                     type: 'Feature' as const,
                     id: icao,
                     geometry: {
                         type: 'LineString' as const,
-                        coordinates: currentHistory.map(p => [p.lon, p.lat])
+                        coordinates: coords,
                     },
-                    properties: { icao24: icao }
+                    properties: { icao24: icao },
                 });
             }
         }
