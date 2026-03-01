@@ -11,13 +11,25 @@ import { FlightsToolbar } from './components/FlightsToolbar';
 import { FlightsLeftPanel } from './components/FlightsLeftPanel';
 import { FlightsRightDrawer } from './components/FlightsRightDrawer';
 import { FlightsStatusBar } from './components/FlightsStatusBar';
+import { MapLayerControl } from './components/MapLayerControl';
 import { useThemeStore } from '../../ui/theme/theme.store';
 
 const trackManager = new TrackManager(5);
 
+const airplanePath = "M9.123 30.464l-1.33-6.268-6.318-1.397 1.291-2.475 5.785-0.316c0.297-0.386 0.96-1.234 1.374-1.648l5.271-5.271-10.989-5.388 2.782-2.782 13.932 2.444 4.933-4.933c0.585-0.585 1.496-0.894 2.634-0.894 0.776 0 1.395 0.143 1.421 0.149l0.3 0.070 0.089 0.295c0.469 1.55 0.187 3.298-0.67 4.155l-4.956 4.956 2.434 13.875-2.782 2.782-5.367-10.945-4.923 4.924c-0.518 0.517-1.623 1.536-2.033 1.912l-0.431 5.425-2.449 1.329zM3.065 22.059l5.63 1.244 1.176 5.544 0.685-0.372 0.418-5.268 0.155-0.142c0.016-0.014 1.542-1.409 2.153-2.020l5.978-5.979 5.367 10.945 1.334-1.335-2.434-13.876 5.349-5.348c0.464-0.464 0.745-1.598 0.484-2.783-0.216-0.032-0.526-0.066-0.87-0.066-0.593 0-1.399 0.101-1.881 0.582l-5.325 5.325-13.933-2.444-1.335 1.334 10.989 5.388-6.326 6.326c-0.483 0.482-1.418 1.722-1.428 1.734l-0.149 0.198-5.672 0.31-0.366 0.702z";
+
 const createColoredAirplane = (color: string) => {
-    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${color}" stroke="none">
-  <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1.1.6L3 8l6 5.5-3.5 3.5-3.2-1.1c-.4-.1-.8.1-1 .5L1 17l4 2 2 4 .6-.3c.4-.2.6-.6.5-1l-1.1-3.2 3.5-3.5 5.5 6 1.2-.7c.4-.2.7-.6.6-1.1z"/>
+    const svgString = `<svg width="32" height="32" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="clip-wing-left" clipPathUnits="userSpaceOnUse"><polygon points="0,0 18,0 18,17 0,26" /></clipPath>
+    <clipPath id="clip-wing-right" clipPathUnits="userSpaceOnUse"><polygon points="12,0 32,0 32,32 16,32 16,10" /></clipPath>
+    <clipPath id="clip-tail" clipPathUnits="userSpaceOnUse"><polygon points="0,16 16,16 16,32 0,32" /></clipPath>
+    <clipPath id="clip-body" clipPathUnits="userSpaceOnUse"><polygon points="9,6 26,0 32,0 32,10 14,24 6,20" /></clipPath>
+  </defs>
+  <g clip-path="url(#clip-wing-left)"><path d="${airplanePath}" fill="${color}"/></g>
+  <g clip-path="url(#clip-wing-right)"><path d="${airplanePath}" fill="${color}"/></g>
+  <g clip-path="url(#clip-body)"><path d="${airplanePath}" fill="${color}"/></g>
+  <g clip-path="url(#clip-tail)"><path d="${airplanePath}" fill="${color}"/></g>
 </svg>`;
     return `data:image/svg+xml;base64,${btoa(svgString)}`;
 };
@@ -32,7 +44,7 @@ const PRELOADED_ICONS: Record<string, HTMLImageElement> = {};
 let iconsLoaded = false;
 const iconsPromise = Promise.all(
     Object.entries(ICON_URLS).map(([id, url]) => new Promise<void>(resolve => {
-        const img = new Image(24, 24);
+        const img = new Image(32, 32);
         img.onload = () => {
             PRELOADED_ICONS[id] = img;
             resolve();
@@ -45,7 +57,7 @@ const iconsPromise = Promise.all(
 
 export const FlightsPage: React.FC = () => {
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
-    const { mapProjection } = useThemeStore();
+    const { mapProjection, mapLayer } = useThemeStore();
 
     useEffect(() => {
         if (!imagesReady) {
@@ -70,6 +82,32 @@ export const FlightsPage: React.FC = () => {
             return true;
         });
     }, [states, filters]);
+
+    const activeMapStyle = useMemo(() => {
+        switch (mapLayer) {
+            case 'light': return 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+            case 'street': return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+            case 'satellite': return {
+                version: 8,
+                sources: {
+                    esri: {
+                        type: 'raster',
+                        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                        tileSize: 256
+                    }
+                },
+                layers: [{
+                    id: 'esri-satellite',
+                    type: 'raster',
+                    source: 'esri',
+                    minzoom: 0,
+                    maxzoom: 19
+                }]
+            } as any;
+            case 'dark':
+            default: return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+        }
+    }, [mapLayer]);
 
     const [tracksGeoJSON, setTracksGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] });
 
@@ -133,6 +171,7 @@ export const FlightsPage: React.FC = () => {
             <FlightsToolbar />
             <FlightsLeftPanel data={filteredStates} />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
+            <MapLayerControl />
 
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
@@ -142,17 +181,13 @@ export const FlightsPage: React.FC = () => {
                         latitude: 40,
                         zoom: 3
                     }}
-                    mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+                    mapStyle={activeMapStyle}
                     interactiveLayerIds={['aircraft-points']}
                     onClick={onClick}
                     cursor={selectedIcao24 ? "pointer" : "crosshair"}
                     onLoad={onMapLoad}
                     onStyleImageMissing={onStyleImageMissing}
                     projection={mapProjection === 'globe' ? { type: 'globe' } as any : undefined}
-                    scrollZoom={mapProjection !== 'globe'}
-                    dragPitch={mapProjection !== 'globe'}
-                    dragRotate={mapProjection !== 'globe'}
-                    doubleClickZoom={mapProjection !== 'globe'}
                     style={{ width: '100%', height: '100%' }}
                 >
                     <NavigationControl position="top-right" />
@@ -215,7 +250,7 @@ export const FlightsPage: React.FC = () => {
                                         'aircraft-green'
                                     ],
                                     'icon-size': 0.8,
-                                    'icon-rotate': ['get', 'heading'],
+                                    'icon-rotate': ['-', ['get', 'heading'], 45],
                                     'icon-allow-overlap': true,
                                 }}
                             />
