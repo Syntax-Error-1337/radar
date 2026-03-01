@@ -1,4 +1,4 @@
-import { AircraftState } from './flights.types';
+import type { AircraftState } from './flights.types';
 
 export interface TrackPoint {
     lat: number;
@@ -40,16 +40,31 @@ export class TrackManager {
         }
     }
 
-    getLineGeoJSON() {
+    getLineGeoJSON(extrapolatedStates?: AircraftState[]) {
         const features = [];
+        const extraPoints = new Map<string, TrackPoint>();
+
+        if (extrapolatedStates) {
+            for (const state of extrapolatedStates) {
+                extraPoints.set(state.icao24, { lat: state.lat, lon: state.lon, timestamp: Date.now() });
+            }
+        }
+
         for (const [icao, history] of this.tracks.entries()) {
-            if (history.length > 1) {
+            const currentHistory = [...history];
+            const extra = extraPoints.get(icao);
+
+            if (extra) {
+                currentHistory.push(extra);
+            }
+
+            if (currentHistory.length > 1) {
                 features.push({
                     type: 'Feature' as const,
                     id: icao,
                     geometry: {
                         type: 'LineString' as const,
-                        coordinates: history.map(p => [p.lon, p.lat])
+                        coordinates: currentHistory.map(p => [p.lon, p.lat])
                     },
                     properties: { icao24: icao }
                 });

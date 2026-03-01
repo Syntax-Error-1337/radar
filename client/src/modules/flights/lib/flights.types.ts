@@ -15,4 +15,10 @@ export interface AircraftState {
     spi: boolean;
     positionSource: number;
     category: number;
+    registration?: string;
+    manufacturerName?: string;
+    model?: string;
+    operator?: string;
+    typecode?: string;
+    built?: string;
 }

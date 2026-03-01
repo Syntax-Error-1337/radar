@@ -33,6 +33,41 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
                         </div>
                     </div>
 
+                    {/* Aircraft Details (from Database) */}
+                    {(flight.registration || flight.model || flight.operator || flight.manufacturerName) && (
+                        <div>
+                            <div className="text-intel-text-light font-bold text-xs mb-2 uppercase border-l-2 border-intel-accent pl-2">Aircraft</div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] font-mono mb-6">
+                                {flight.registration && (
+                                    <>
+                                        <div className="text-intel-text">Registration</div>
+                                        <div className="text-intel-accent font-bold text-right">{flight.registration}</div>
+                                    </>
+                                )}
+                                {flight.operator && (
+                                    <>
+                                        <div className="text-intel-text">Operator</div>
+                                        <div className="text-intel-text-light text-right truncate" title={flight.operator}>{flight.operator}</div>
+                                    </>
+                                )}
+                                {(flight.manufacturerName || flight.model) && (
+                                    <>
+                                        <div className="text-intel-text">Type</div>
+                                        <div className="text-intel-text-light text-right truncate" title={`${flight.manufacturerName || ''} ${flight.model || ''}`.trim()}>
+                                            {flight.manufacturerName ? `${flight.manufacturerName} ` : ''}{flight.model || flight.typecode || 'Unknown'}
+                                        </div>
+                                    </>
+                                )}
+                                {flight.built && (
+                                    <>
+                                        <div className="text-intel-text">Built</div>
+                                        <div className="text-intel-text-light text-right">{flight.built}</div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Spatial */}
                     <div>
                         <div className="text-intel-text-light font-bold text-xs mb-2 uppercase border-l-2 border-intel-accent pl-2">Spatial</div>
