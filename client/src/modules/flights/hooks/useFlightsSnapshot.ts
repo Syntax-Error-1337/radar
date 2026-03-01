@@ -1,24 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { OpenSkyClient } from '../../../core/providers/opensky.client';
 import { MockClient } from '../../../core/providers/mock.client';
+import type { FlightProvider } from '../../../core/providers/provider.types';
+
+// Memoize provider at module level — avoid a new class instance on every 5s refetch
+const provider: FlightProvider = import.meta.env.VITE_FLIGHT_PROVIDER === 'mock'
+    ? new MockClient()
+    : new OpenSkyClient();
 
 export function useFlightsSnapshot() {
     return useQuery({
         queryKey: ['flights-snapshot'],
         queryFn: async () => {
-            const isMock = import.meta.env.VITE_FLIGHT_PROVIDER === 'mock';
             try {
-                if (isMock) {
-                    const client = new MockClient();
-                    return await client.snapshot();
-                } else {
-                    const client = new OpenSkyClient();
-                    return await client.snapshot();
-                }
+                return await provider.snapshot();
             } catch (e) {
                 console.warn('Primary provider failed, falling back to mock');
-                const client = new MockClient();
-                return await client.snapshot();
+                return await new MockClient().snapshot();
             }
         },
         refetchInterval: 5000,

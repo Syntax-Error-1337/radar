@@ -1,5 +1,5 @@
-import { FlightProvider, ProviderSnapshot } from './provider.types';
-import { AircraftState } from '../../modules/flights/lib/flights.types';
+import type { FlightProvider, ProviderSnapshot } from './provider.types';
+import type { AircraftState } from '../../modules/flights/lib/flights.types';
 
 export class MockClient implements FlightProvider {
     async snapshot(): Promise<ProviderSnapshot> {
