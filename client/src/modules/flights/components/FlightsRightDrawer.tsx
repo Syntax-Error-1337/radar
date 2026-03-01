@@ -2,8 +2,9 @@ import React from 'react';
 import { Panel } from '../../../ui/layout/Panel';
 import type { AircraftState } from '../lib/flights.types';
 import { formatAge } from '../../../utils/time';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, Crosshair, Box } from 'lucide-react';
 import { useAircraftPhoto } from '../hooks/useAircraftPhoto';
+import { useFlightsStore } from '../state/flights.store';
 
 interface Props {
     flight: AircraftState | null;
@@ -12,6 +13,7 @@ interface Props {
 
 export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
     const { data: photo, isLoading: photoLoading } = useAircraftPhoto(flight?.icao24);
+    const { cameraTrackMode, setCameraTrackMode, onboardMode, setOnboardMode } = useFlightsStore();
 
     if (!flight) return null;
 
@@ -52,6 +54,32 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
                                 <span className="text-[10px] text-intel-text-light/40 font-mono tracking-widest uppercase">No Photo Available</span>
                             </div>
                         )}
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex gap-2 border-b border-intel-panel pb-4 mb-2">
+                        <button
+                            onClick={() => setCameraTrackMode(!cameraTrackMode)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[4px] border transition-colors text-[11px] font-bold ${cameraTrackMode
+                                ? 'bg-intel-accent/20 border-intel-accent/50 text-intel-accent shadow-[0_0_10px_rgba(26,115,232,0.3)]'
+                                : 'bg-[#151b28] hover:bg-[#1a2233] border-intel-panel text-intel-text-light'
+                                }`}
+                        >
+                            <Crosshair size={13} className={cameraTrackMode ? "animate-pulse" : ""} />
+                            {cameraTrackMode ? 'TRACKING' : 'TRACK'}
+                        </button>
+
+                        <button
+                            onClick={() => setOnboardMode(!onboardMode)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[4px] border transition-colors text-[11px] font-bold ${onboardMode
+                                    ? 'bg-intel-accent/20 border-intel-accent/50 text-intel-accent shadow-[0_0_10px_rgba(26,115,232,0.3)]'
+                                    : 'bg-[#151b28] hover:bg-[#1a2233] border-intel-panel text-intel-text-light'
+                                }`}
+                            title="Experience 3D aircraft models, terrain, and seamlessly jump to nearby live traffic"
+                        >
+                            <Box size={13} className={onboardMode ? "animate-pulse" : ""} />
+                            {onboardMode ? '3D ACTIVE' : '3D ONBOARD'}
+                        </button>
                     </div>
 
                     {/* Header Details */}
