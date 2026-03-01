@@ -150,6 +150,8 @@ export const MapLayerControl: React.FC = () => {
             {/* Main Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
+                aria-label="Toggle map layer options"
+                aria-expanded={isOpen}
                 className={`bg-white text-gray-700 p-2.5 rounded-sm shadow-md border hover:bg-gray-50 hover:text-black transition-all ${isOpen ? 'bg-gray-100 border-gray-300' : 'border-gray-200'
                     }`}
                 title="Map Layers"

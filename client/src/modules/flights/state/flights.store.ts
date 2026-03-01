@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-interface FlightsFilters {
+export interface FlightsFilters {
     altitudeMin: number;
     altitudeMax: number;
     speedMin: number;

@@ -1,7 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { useFlightsSnapshot } from './hooks/useFlightsSnapshot';
 import { useFlightSelection } from './hooks/useFlightSelection';
 import { useFlightTrack } from './hooks/useFlightTrack';
@@ -213,15 +212,26 @@ export const FlightsPage: React.FC = () => {
     }, []);
 
     const onStyleData = useCallback((e: any) => {
+        // Only act on full style reloads, not on individual tile/source load events.
+        // Without this guard this callback fires hundreds of times per second during
+        // map panning, re-adding icons on every tile.
+        if (e.dataType !== 'style') return;
         const map = e.target;
         if (iconsLoaded) {
             Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
                 if (!map.hasImage(id)) map.addImage(id, img);
             });
         }
-        // Re-add flight icon after every style reload (satellite style switch wipes all images)
+        // Re-add flight icon after style reloads (style switch wipes all custom images)
         addFlightIcon(map);
     }, []);
+
+    // Keep historicalGeoJSON in a ref so the rAF loop can always read the latest
+    // value without being listed as a dependency (which would restart the loop).
+    const historicalGeoJSONRef = useRef(historicalGeoJSON);
+    useEffect(() => {
+        historicalGeoJSONRef.current = historicalGeoJSON;
+    }, [historicalGeoJSON]);
 
     useEffect(() => {
         let animationFrameId: number;
@@ -245,29 +255,28 @@ export const FlightsPage: React.FC = () => {
                     const extrapolatedStates = filteredStates.map(state => extrapolateState(state, nowSeconds));
                     const geojson = statesToPointGeoJSON(extrapolatedStates);
 
-                    // Prevent NaN coordinates from reaching Mapbox source
+                    // Prevent NaN coordinates from reaching MapLibre source
                     if (!geojson.features.some((f: any) => Number.isNaN(f.geometry.coordinates[0]))) {
 
-                        // Camera Tracking & Onboard Mode
-                        const trackMode = useFlightsStore.getState().cameraTrackMode;
-                        const onboardMode = useFlightsStore.getState().onboardMode;
+                        // Camera Tracking & Onboard Mode — read store directly to avoid
+                        // adding store slices to the dep array and restarting the loop.
+                        const { cameraTrackMode: trackMode, onboardMode: isOnboard } = useFlightsStore.getState();
 
-                        if ((trackMode || onboardMode) && selectedIcao24) {
+                        if ((trackMode || isOnboard) && selectedIcao24) {
                             const selectedState = extrapolatedStates.find(s => s.icao24 === selectedIcao24);
                             if (selectedState) {
-                                if (onboardMode) {
-                                    // 3D Onboard Mode: Aggressive zoom, full pitch to horizon, bearing equals airplane heading
+                                if (isOnboard) {
+                                    // 3D Onboard Mode: aggressive zoom, full pitch, bearing = heading
                                     map.jumpTo({
                                         center: [selectedState.lon, selectedState.lat],
                                         zoom: Math.max(map.getZoom(), 16),
                                         pitch: 75,
                                         bearing: selectedState.heading || 0
                                     });
-                                    // Project aircraft position to screen pixels for the HTML overlay
                                     const screenPt = map.project([selectedState.lon, selectedState.lat]);
                                     setIconScreenPos({ x: screenPt.x, y: screenPt.y });
                                 } else {
-                                    // Standard Track Mode: Tight zoom, overhead
+                                    // Standard Track Mode: tight zoom, overhead
                                     map.jumpTo({
                                         center: [selectedState.lon, selectedState.lat],
                                         zoom: Math.max(map.getZoom(), 11)
@@ -285,24 +294,25 @@ export const FlightsPage: React.FC = () => {
                         const haloSource = map.getSource('points-halo') as any;
                         if (haloSource?.setData) haloSource.setData(geojson);
 
-                        // Also update tracks continuously so the line connects to the moving aircraft
+                        // Update breadcrumb tracks so the line always connects to the live aircraft
                         const tracksSource = map.getSource('tracks') as any;
                         if (tracksSource?.setData) {
                             tracksSource.setData(trackManager.getLineGeoJSON(extrapolatedStates));
                         }
 
-                        // Update historical selected track to tightly follow selected aircraft
-                        if (selectedIcao24 && historicalGeoJSON.features.length > 0) {
+                        // Append live aircraft position to the tail of the historical track
+                        const liveHistorical = historicalGeoJSONRef.current;
+                        if (selectedIcao24 && liveHistorical.features.length > 0) {
                             const selectedState = extrapolatedStates.find(s => s.icao24 === selectedIcao24);
                             if (selectedState) {
                                 const updatedHistorical = {
-                                    ...historicalGeoJSON,
+                                    ...liveHistorical,
                                     features: [{
-                                        ...historicalGeoJSON.features[0],
+                                        ...liveHistorical.features[0],
                                         geometry: {
-                                            ...historicalGeoJSON.features[0].geometry,
+                                            ...liveHistorical.features[0].geometry,
                                             coordinates: [
-                                                ...historicalGeoJSON.features[0].geometry.coordinates,
+                                                ...liveHistorical.features[0].geometry.coordinates,
                                                 [selectedState.lon, selectedState.lat]
                                             ]
                                         }
@@ -327,7 +337,9 @@ export const FlightsPage: React.FC = () => {
         return () => {
             cancelAnimationFrame(animationFrameId);
         };
-    }, [filteredStates, selectedIcao24, historicalGeoJSON]);
+        // historicalGeoJSON intentionally excluded — accessed via ref to avoid restarting the loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredStates, selectedIcao24]);
 
     return (
         <div className="absolute inset-0 bg-intel-bg overflow-hidden flex flex-col">
@@ -337,14 +349,13 @@ export const FlightsPage: React.FC = () => {
                 airborneCount={filteredStates.filter(s => !s.onGround).length}
                 onGroundCount={filteredStates.filter(s => s.onGround).length}
             />
-            <FlightsLeftPanel data={filteredStates} />
+            <FlightsLeftPanel />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
             <MapLayerControl />
 
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
                     ref={mapRef}
-                    key={`map-${mapProjection}-${mapLayer}`}
                     initialViewState={{
                         longitude: -30,
                         latitude: 40,
@@ -399,7 +410,7 @@ export const FlightsPage: React.FC = () => {
                     </Source>
 
                     {/* Blue halo circle underneath for selected aircraft */}
-                    {!useFlightsStore.getState().onboardMode && (
+                    {!onboardMode && (
                         <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
                             <Layer
                                 id="aircraft-points-halo"
@@ -415,7 +426,7 @@ export const FlightsPage: React.FC = () => {
                     )}
 
                     {/* 2D Icons */}
-                    {imagesReady && !useFlightsStore.getState().onboardMode && (
+                    {imagesReady && !onboardMode && (
                         <Source id="points" type="geojson" data={pointsGeoJSON}>
                             <Layer
                                 id="aircraft-points"

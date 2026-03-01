@@ -13,5 +13,17 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split maplibre into its own chunk so it's cached independently from
+        // app code. maplibre-gl is ~700kB minified — keeping it separate
+        // means a single line of app code change doesn't bust this cache entry.
+        manualChunks: {
+          maplibre: ['maplibre-gl'],
+        }
+      }
+    }
   }
 })

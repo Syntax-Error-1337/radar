@@ -1,7 +1,6 @@
 import type { AircraftState } from './flights.types';
 
-// Earth radius in meters
-const R = 6378137;
+
 
 export function extrapolateState(state: AircraftState, nowSeconds: number): AircraftState {
     if (state.onGround || state.velocity == null || state.heading == null || state.lastContact == null) {

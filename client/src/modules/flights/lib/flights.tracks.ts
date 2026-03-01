@@ -28,11 +28,13 @@ export class TrackManager {
             }
         }
 
-        // Prune tracks
+        // Prune points older than the time window.
+        // Only delete the track when *no* points survive — a single recent point
+        // is valid and should grow on the next update call.
         const cutoff = currentTimeMs - this.maxAgeMs;
         for (const [icao, history] of Array.from(this.tracks.entries())) {
             const pruned = history.filter(p => p.timestamp > cutoff);
-            if (pruned.length < 2) {
+            if (pruned.length === 0) {
                 this.tracks.delete(icao);
             } else {
                 this.tracks.set(icao, pruned);

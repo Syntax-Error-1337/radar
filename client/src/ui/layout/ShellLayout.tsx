@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { TopNav } from './TopNav';
 import { useThemeStore } from '../theme/theme.store';
 import { clsx } from 'clsx';
