@@ -18,6 +18,21 @@ import { useThemeStore } from '../../ui/theme/theme.store';
 
 const trackManager = new TrackManager(5);
 
+// Preload the flight.svg icon at module level so it's always available
+let flightIconImg: HTMLImageElement | null = null;
+const flightIconPromise = new Promise<HTMLImageElement>((resolve) => {
+    const img = new Image(64, 64);
+    img.addEventListener('load', () => { flightIconImg = img; resolve(img); });
+    img.src = '/flight.svg';
+});
+
+/** Add flight-icon to the map if not already present */
+function addFlightIcon(map: any) {
+    if (flightIconImg && !map.hasImage('flight-icon')) {
+        map.addImage('flight-icon', flightIconImg);
+    }
+}
+
 const airplanePath = "M9.123 30.464l-1.33-6.268-6.318-1.397 1.291-2.475 5.785-0.316c0.297-0.386 0.96-1.234 1.374-1.648l5.271-5.271-10.989-5.388 2.782-2.782 13.932 2.444 4.933-4.933c0.585-0.585 1.496-0.894 2.634-0.894 0.776 0 1.395 0.143 1.421 0.149l0.3 0.070 0.089 0.295c0.469 1.55 0.187 3.298-0.67 4.155l-4.956 4.956 2.434 13.875-2.782 2.782-5.367-10.945-4.923 4.924c-0.518 0.517-1.623 1.536-2.033 1.912l-0.431 5.425-2.449 1.329zM3.065 22.059l5.63 1.244 1.176 5.544 0.685-0.372 0.418-5.268 0.155-0.142c0.016-0.014 1.542-1.409 2.153-2.020l5.978-5.979 5.367 10.945 1.334-1.335-2.434-13.876 5.349-5.348c0.464-0.464 0.745-1.598 0.484-2.783-0.216-0.032-0.526-0.066-0.87-0.066-0.593 0-1.399 0.101-1.881 0.582l-5.325 5.325-13.933-2.444-1.335 1.334 10.989 5.388-6.326 6.326c-0.483 0.482-1.418 1.722-1.428 1.734l-0.149 0.198-5.672 0.31-0.366 0.702z";
 
 const createColoredAirplane = (color: string) => {
@@ -61,6 +76,9 @@ export const FlightsPage: React.FC = () => {
     const mapRef = useRef<MapRef>(null);
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
     const { mapProjection, mapLayer } = useThemeStore();
+    const onboardMode = useFlightsStore(s => s.onboardMode);
+    // Screen pixel position of the aircraft icon (for HTML overlay)
+    const [iconScreenPos, setIconScreenPos] = useState<{ x: number, y: number } | null>(null);
 
     useEffect(() => {
         if (!imagesReady) {
@@ -86,31 +104,35 @@ export const FlightsPage: React.FC = () => {
         });
     }, [states, filters]);
 
+    const satelliteStyle = useMemo(() => ({
+        version: 8,
+        sources: {
+            esri: {
+                type: 'raster',
+                tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                tileSize: 256
+            }
+        },
+        layers: [{
+            id: 'esri-satellite',
+            type: 'raster',
+            source: 'esri',
+            minzoom: 0,
+            maxzoom: 19
+        }]
+    } as any), []);
+
     const activeMapStyle = useMemo(() => {
+        // Force satellite when in 3D onboard mode so the ground is visible
+        if (onboardMode) return satelliteStyle;
         switch (mapLayer) {
             case 'light': return 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
             case 'street': return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-            case 'satellite': return {
-                version: 8,
-                sources: {
-                    esri: {
-                        type: 'raster',
-                        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-                        tileSize: 256
-                    }
-                },
-                layers: [{
-                    id: 'esri-satellite',
-                    type: 'raster',
-                    source: 'esri',
-                    minzoom: 0,
-                    maxzoom: 19
-                }]
-            } as any;
+            case 'satellite': return satelliteStyle;
             case 'dark':
             default: return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
         }
-    }, [mapLayer]);
+    }, [mapLayer, onboardMode, satelliteStyle]);
 
     // Tracks state is now fully handled in requestAnimationFrame loop
     // no need for React state to manage GeoJSON for better perf
@@ -155,12 +177,13 @@ export const FlightsPage: React.FC = () => {
         const map = e.target;
         if (iconsLoaded) {
             Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
-                if (!map.hasImage(id)) {
-                    map.addImage(id, img);
-                }
+                if (!map.hasImage(id)) map.addImage(id, img);
             });
         }
+        addFlightIcon(map);
     }, []);
+
+    // Clean up: no custom WebGL layers needed anymore
 
     const onStyleImageMissing = useCallback((e: any) => {
         const id = e.id;
@@ -170,15 +193,23 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
+    const onMoveStart = useCallback((e: any) => {
+        if (e.originalEvent) {
+            const store = useFlightsStore.getState();
+            if (store.cameraTrackMode) store.setCameraTrackMode(false);
+            if (store.onboardMode) store.setOnboardMode(false);
+        }
+    }, []);
+
     const onStyleData = useCallback((e: any) => {
         const map = e.target;
         if (iconsLoaded) {
             Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
-                if (!map.hasImage(id)) {
-                    map.addImage(id, img);
-                }
+                if (!map.hasImage(id)) map.addImage(id, img);
             });
         }
+        // Re-add flight icon after every style reload (satellite style switch wipes all images)
+        addFlightIcon(map);
     }, []);
 
     useEffect(() => {
@@ -205,6 +236,38 @@ export const FlightsPage: React.FC = () => {
 
                     // Prevent NaN coordinates from reaching Mapbox source
                     if (!geojson.features.some((f: any) => Number.isNaN(f.geometry.coordinates[0]))) {
+
+                        // Camera Tracking & Onboard Mode
+                        const trackMode = useFlightsStore.getState().cameraTrackMode;
+                        const onboardMode = useFlightsStore.getState().onboardMode;
+
+                        if ((trackMode || onboardMode) && selectedIcao24) {
+                            const selectedState = extrapolatedStates.find(s => s.icao24 === selectedIcao24);
+                            if (selectedState) {
+                                if (onboardMode) {
+                                    // 3D Onboard Mode: Aggressive zoom, full pitch to horizon, bearing equals airplane heading
+                                    map.jumpTo({
+                                        center: [selectedState.lon, selectedState.lat],
+                                        zoom: Math.max(map.getZoom(), 16),
+                                        pitch: 75,
+                                        bearing: selectedState.heading || 0
+                                    });
+                                    // Project aircraft position to screen pixels for the HTML overlay
+                                    const screenPt = map.project([selectedState.lon, selectedState.lat]);
+                                    setIconScreenPos({ x: screenPt.x, y: screenPt.y });
+                                } else {
+                                    // Standard Track Mode: Tight zoom, overhead
+                                    map.jumpTo({
+                                        center: [selectedState.lon, selectedState.lat],
+                                        zoom: Math.max(map.getZoom(), 11)
+                                    });
+                                    setIconScreenPos(null);
+                                }
+                            }
+                        } else {
+                            setIconScreenPos(null);
+                        }
+
                         const pointsSource = map.getSource('points') as any;
                         if (pointsSource?.setData) pointsSource.setData(geojson);
 
@@ -257,7 +320,12 @@ export const FlightsPage: React.FC = () => {
 
     return (
         <div className="absolute inset-0 bg-intel-bg overflow-hidden flex flex-col">
-            <FlightsToolbar />
+            <FlightsToolbar
+                totalCount={states.length}
+                filteredCount={filteredStates.length}
+                airborneCount={filteredStates.filter(s => !s.onGround).length}
+                onGroundCount={filteredStates.filter(s => s.onGround).length}
+            />
             <FlightsLeftPanel data={filteredStates} />
             <FlightsRightDrawer flight={selectedFlight} onClose={() => setSelectedIcao24(null)} />
             <MapLayerControl />
@@ -274,6 +342,7 @@ export const FlightsPage: React.FC = () => {
                     mapStyle={activeMapStyle}
                     interactiveLayerIds={['aircraft-points']}
                     onClick={onClick}
+                    onMoveStart={onMoveStart}
                     cursor={selectedIcao24 ? "pointer" : "crosshair"}
                     onLoad={onMapLoad}
                     onStyleData={onStyleData}
@@ -301,7 +370,6 @@ export const FlightsPage: React.FC = () => {
                         />
                     </Source>
 
-                    {/* Bold fading trail from OpenSky Historical API for the selected aircraft */}
                     <Source id="historical-tracks" type="geojson" data={historicalGeoJSON} lineMetrics={true}>
                         <Layer
                             id="aircraft-tracks-selected"
@@ -320,20 +388,23 @@ export const FlightsPage: React.FC = () => {
                     </Source>
 
                     {/* Blue halo circle underneath for selected aircraft */}
-                    <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
-                        <Layer
-                            id="aircraft-points-halo"
-                            type="circle"
-                            paint={{
-                                'circle-radius': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 10, 0],
-                                'circle-color': 'transparent',
-                                'circle-stroke-width': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 2, 0],
-                                'circle-stroke-color': '#3b82f6'
-                            }}
-                        />
-                    </Source>
+                    {!useFlightsStore.getState().onboardMode && (
+                        <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
+                            <Layer
+                                id="aircraft-points-halo"
+                                type="circle"
+                                paint={{
+                                    'circle-radius': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 10, 0],
+                                    'circle-color': 'transparent',
+                                    'circle-stroke-width': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 2, 0],
+                                    'circle-stroke-color': '#3b82f6'
+                                }}
+                            />
+                        </Source>
+                    )}
 
-                    {imagesReady && (
+                    {/* 2D Icons */}
+                    {imagesReady && !useFlightsStore.getState().onboardMode && (
                         <Source id="points" type="geojson" data={pointsGeoJSON}>
                             <Layer
                                 id="aircraft-points"
@@ -352,7 +423,27 @@ export const FlightsPage: React.FC = () => {
                             />
                         </Source>
                     )}
+
                 </Map>
+
+                {/* HTML overlay: aircraft icon positioned via screen coordinates */}
+                {onboardMode && iconScreenPos && selectedFlight && (
+                    <img
+                        src="/flight.svg"
+                        alt="aircraft"
+                        style={{
+                            position: 'absolute',
+                            left: iconScreenPos.x - 20,
+                            top: iconScreenPos.y - 20,
+                            width: 40,
+                            height: 40,
+                            transform: 'rotate(-45deg)',
+                            filter: 'drop-shadow(0 0 6px #00eaff) drop-shadow(0 0 12px #00eaff)',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                        }}
+                    />
+                )}
             </div>
 
             <FlightsStatusBar
