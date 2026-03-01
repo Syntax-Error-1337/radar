@@ -1,0 +1,102 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "https://api.adsb.lol/api/0/routeset",
+    "path_params": {},
+    "body": {
+      "planes": [
+        {
+          "callsign": "JBU1942",
+          "lat": 40.6413,
+          "lng": -73.7781
+        },
+        {
+          "callsign": "DAL123",
+          "lat": 33.6407,
+          "lng": -84.4277
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:12 GMT",
+      "Content-Type": "application/json",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Vary": "Accept-Encoding",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "access-control-allow-origin,content-type",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+      "Content-Encoding": "gzip"
+    },
+    "payload": [
+      {
+        "_airport_codes_iata": "LGA-DEN",
+        "_airports": [
+          {
+            "alt_feet": 21.0,
+            "alt_meters": 6.4,
+            "countryiso2": "US",
+            "iata": "LGA",
+            "icao": "KLGA",
+            "lat": 40.777199,
+            "location": "New York",
+            "lon": -73.872597,
+            "name": "La Guardia Airport"
+          },
+          {
+            "alt_feet": 5431.0,
+            "alt_meters": 1655.37,
+            "countryiso2": "US",
+            "iata": "DEN",
+            "icao": "KDEN",
+            "lat": 39.861698,
+            "location": "Denver",
+            "lon": -104.672997,
+            "name": "Denver International Airport"
+          }
+        ],
+        "airline_code": "JBU",
+        "airport_codes": "KLGA-KDEN",
+        "callsign": "JBU1942",
+        "number": "1942",
+        "plausible": 1
+      },
+      {
+        "_airport_codes_iata": "EDI-BOS",
+        "_airports": [
+          {
+            "alt_feet": 135.0,
+            "alt_meters": 41.15,
+            "countryiso2": "GB",
+            "iata": "EDI",
+            "icao": "EGPH",
+            "lat": 55.950001,
+            "location": "Edinburgh",
+            "lon": -3.3725,
+            "name": "Edinburgh Airport"
+          },
+          {
+            "alt_feet": 20.0,
+            "alt_meters": 6.1,
+            "countryiso2": "US",
+            "iata": "BOS",
+            "icao": "KBOS",
+            "lat": 42.3643,
+            "location": "Boston",
+            "lon": -71.005203,
+            "name": "General Edward Lawrence Logan International Airport"
+          }
+        ],
+        "airline_code": "DAL",
+        "airport_codes": "EGPH-KBOS",
+        "callsign": "DAL123",
+        "number": "123",
+        "plausible": 0
+      }
+    ]
+  }
+}

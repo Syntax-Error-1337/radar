@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/v2/registration/G-KELS",
+    "path_params": {
+      "registration": "G-KELS"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:09 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "89",
+      "Connection": "keep-alive",
+      "Cache-Control": "no-store",
+      "Content-Encoding": "zstd"
+    },
+    "payload": {
+      "ac": [],
+      "msg": "No error",
+      "now": 1772363229500,
+      "total": 0,
+      "ctime": 1772363229500,
+      "ptime": 0
+    }
+  }
+}

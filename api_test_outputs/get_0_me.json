@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/0/me",
+    "path_params": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:12 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "144",
+      "Connection": "keep-alive",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+      "Access-Control-Allow-Origin": "https://www.adsb.lol",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+    },
+    "payload": {
+      "_motd": [],
+      "clients": {
+        "beast": [],
+        "mlat": []
+      },
+      "global": {
+        "aircraft": 5493,
+        "beast": 4616,
+        "mlat": 64
+      }
+    }
+  }
+}

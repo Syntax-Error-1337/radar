@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/api/0/airport/test",
+    "path_params": {
+      "icao": "test"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:12 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "4",
+      "Connection": "keep-alive",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains"
+    },
+    "payload": null
+  }
+}

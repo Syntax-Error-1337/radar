@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { fetchStates, fetchTrack } from '../core/opensky';
+import { fetchStates as fetchOpenSkyStates, fetchTrack as fetchOpenSkyTrack } from '../core/opensky';
+import { fetchStates as fetchAdsbLolStates, fetchTrack as fetchAdsbLolTrack } from '../core/adsblol';
 
 const router = Router();
 
@@ -17,13 +18,16 @@ router.get('/snapshot', async (req, res) => {
     }
 
     try {
+        const useAdsbLol = process.env.FLIGHT_DATA_SOURCE === 'adsblol';
+        const fetchStates = useAdsbLol ? fetchAdsbLolStates : fetchOpenSkyStates;
+
         const states = await fetchStates();
         const payload = { states, timestamp: now };
         snapshotCache = { data: payload, ts: now };
         res.setHeader('X-Cache', 'MISS');
         res.json(payload);
     } catch (error: any) {
-        console.warn(`[OpenSky API Failed] ${error.message} - Serving Mock Fallback Data`);
+        console.warn(`[API Failed] ${error.message} - Serving Mock Fallback Data`);
 
         // Generate a deterministic mock dataset based on current time
         // This ensures the dashboard always has moving planes to show
@@ -77,6 +81,9 @@ router.get('/snapshot', async (req, res) => {
 
 router.get('/track/:icao24', async (req, res) => {
     try {
+        const useAdsbLol = process.env.FLIGHT_DATA_SOURCE === 'adsblol';
+        const fetchTrack = useAdsbLol ? fetchAdsbLolTrack : fetchOpenSkyTrack;
+
         const track = await fetchTrack(req.params.icao24);
         res.json(track);
     } catch (error: any) {

@@ -1,0 +1,97 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/v2/pia",
+    "path_params": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:07 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "506",
+      "Connection": "keep-alive",
+      "Cache-Control": "no-store",
+      "Content-Encoding": "zstd"
+    },
+    "payload": {
+      "ac": [
+        {
+          "hex": "a03bef",
+          "type": "adsb_icao",
+          "flight": "FFL1589 ",
+          "dbFlags": 4,
+          "alt_baro": 45000,
+          "alt_geom": 45300,
+          "gs": 582.1,
+          "track": 78.81,
+          "baro_rate": 0,
+          "squawk": "7307",
+          "emergency": "none",
+          "category": "A3",
+          "nav_qnh": 1013.6,
+          "nav_altitude_mcp": 45024,
+          "nav_modes": [
+            "autopilot",
+            "althold",
+            "tcas"
+          ],
+          "lat": 40.179143,
+          "lon": -102.847075,
+          "nic": 8,
+          "rc": 186,
+          "seen_pos": 0.018,
+          "version": 2,
+          "nic_baro": 1,
+          "nac_p": 10,
+          "nac_v": 2,
+          "sil": 3,
+          "sil_type": "perhour",
+          "gva": 2,
+          "sda": 2,
+          "alert": 0,
+          "spi": 0,
+          "mlat": [],
+          "tisb": [],
+          "messages": 62360,
+          "seen": 0.0,
+          "rssi": -14.2
+        },
+        {
+          "hex": "a0854a",
+          "type": "mode_s",
+          "dbFlags": 4,
+          "alt_baro": "ground",
+          "version": 0,
+          "mlat": [],
+          "tisb": [],
+          "messages": 2,
+          "seen": 39.1,
+          "rssi": -49.5
+        },
+        {
+          "hex": "a0a723",
+          "type": "adsr_icao",
+          "dbFlags": 4,
+          "alt_baro": 34925,
+          "nac_p": 11,
+          "sil": 2,
+          "sil_type": "unknown",
+          "alert": 0,
+          "spi": 1,
+          "mlat": [],
+          "tisb": [],
+          "messages": 2,
+          "seen": 48.3,
+          "rssi": -49.5
+        }
+      ],
+      "msg": "No error",
+      "now": 1772363227000,
+      "total": 3,
+      "ctime": 1772363227000,
+      "ptime": 0
+    }
+  }
+}
