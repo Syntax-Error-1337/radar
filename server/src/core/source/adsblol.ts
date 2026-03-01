@@ -1,6 +1,6 @@
-import { AircraftState } from '../types/flights';
-import { Cache } from './cache';
-import { aircraftDb } from './aircraft_db';
+import { AircraftState } from '../../types/flights';
+import { Cache } from '../cache';
+import { aircraftDb } from '../aircraft_db';
 
 const CACHE_TTL = 3000;
 const adsblolCache = new Cache<AircraftState[]>(CACHE_TTL);

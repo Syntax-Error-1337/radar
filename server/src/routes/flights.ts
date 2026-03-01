@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { fetchStates as fetchOpenSkyStates, fetchTrack as fetchOpenSkyTrack } from '../core/opensky';
-import { fetchStates as fetchAdsbLolStates, fetchTrack as fetchAdsbLolTrack } from '../core/adsblol';
+import { fetchStates as fetchOpenSkyStates, fetchTrack as fetchOpenSkyTrack } from '../core/source/opensky';
+import { fetchStates as fetchAdsbLolStates, fetchTrack as fetchAdsbLolTrack } from '../core/source/adsblol';
 
 const router = Router();
 
