@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import csv from 'csv-parser';
+const duckdb = require('duckdb');
 
 export interface AircraftDetails {
     icao24: string;
@@ -12,10 +12,10 @@ export interface AircraftDetails {
     built?: string;
 }
 
-// JSON cache sits next to the CSV; its mtime is compared to the CSV's mtime so
+// JSON cache sits next to the Parquet file; its mtime is compared to the Parquet file's mtime so
 // it is automatically rebuilt whenever the source file is replaced.
-const CSV_PATH = path.resolve(__dirname, '../../../aircraft-database-complete-2025-08.csv');
-const JSON_CACHE_PATH = `${CSV_PATH}.cache.json`;
+const PARQUET_PATH = path.resolve(__dirname, '../../src/Data/aircraft-database-complete-2025-08.parquet');
+const JSON_CACHE_PATH = `${PARQUET_PATH}.cache.json`;
 
 class AircraftDatabase {
     private isLoaded = false;
@@ -24,16 +24,16 @@ class AircraftDatabase {
     public async load(): Promise<void> {
         if (this.isLoaded) return;
 
-        // Use JSON cache when it is newer than the CSV to skip parsing ~108 MB every restart
+        // Use JSON cache when it is newer than the Parquet file to skip parsing every restart
         if (this.tryLoadFromCache()) return;
 
-        if (!fs.existsSync(CSV_PATH)) {
-            console.warn(`Aircraft DB not found at: ${CSV_PATH}. Extended details will be unavailable.`);
+        if (!fs.existsSync(PARQUET_PATH)) {
+            console.warn(`Aircraft DB not found at: ${PARQUET_PATH}. Extended details will be unavailable.`);
             this.isLoaded = true;
             return;
         }
 
-        await this.parseCSV();
+        await this.parseParquet();
         this.saveCache();
     }
 
@@ -41,10 +41,10 @@ class AircraftDatabase {
         try {
             if (!fs.existsSync(JSON_CACHE_PATH)) return false;
 
-            const csvMtime = fs.statSync(CSV_PATH).mtimeMs;
+            const sourceMtime = fs.statSync(PARQUET_PATH).mtimeMs;
             const cacheMtime = fs.statSync(JSON_CACHE_PATH).mtimeMs;
-            if (cacheMtime < csvMtime) {
-                console.log('Aircraft DB cache is stale, rebuilding from CSV...');
+            if (cacheMtime < sourceMtime) {
+                console.log('Aircraft DB cache is stale, rebuilding from Parquet...');
                 return false;
             }
 
@@ -58,7 +58,7 @@ class AircraftDatabase {
             console.log(`Aircraft Database loaded ${this.db.size} records from cache in ${Date.now() - t}ms`);
             return true;
         } catch (e) {
-            console.warn('Failed to load Aircraft DB cache, falling back to CSV:', e);
+            console.warn('Failed to load Aircraft DB cache, falling back to Parquet:', e);
             return false;
         }
     }
@@ -72,41 +72,45 @@ class AircraftDatabase {
         }
     }
 
-    private parseCSV(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            console.log('Parsing Aircraft Database CSV (first run only)...');
-            const t = Date.now();
-            let count = 0;
+    private async parseParquet(): Promise<void> {
+        console.log('Parsing Aircraft Database Parquet with DuckDB (first run only)...');
+        const t = Date.now();
 
-            fs.createReadStream(CSV_PATH)
-                .pipe(csv({ quote: "'" }))
-                .on('data', (row: any) => {
-                    const icao24 = row.icao24?.trim().toLowerCase();
-                    if (!icao24) return;
+        return new Promise((resolve, reject) => {
+            const db = new duckdb.Database(':memory:');
+            db.all(`SELECT * FROM '${PARQUET_PATH}'`, (err: any, rows: any[]) => {
+                if (err) {
+                    console.error('Error reading Parquet with DuckDB:', err);
+                    return reject(err);
+                }
+
+                let count = 0;
+                for (const record of rows) {
+                    const icao24 = record.icao24?.trim().toLowerCase();
+                    if (!icao24) continue;
 
                     const details: AircraftDetails = { icao24 };
 
-                    if (row.registration) details.registration = row.registration.trim();
-                    if (row.manufacturerName) details.manufacturerName = row.manufacturerName.trim();
-                    else if (row.manufacturerIcao) details.manufacturerName = row.manufacturerIcao.trim();
+                    if (record.registration) details.registration = record.registration.trim();
+                    if (record.manufacturerName) details.manufacturerName = record.manufacturerName.trim();
+                    else if (record.manufacturerIcao) details.manufacturerName = String(record.manufacturerIcao).trim();
 
-                    if (row.model) details.model = row.model.trim();
+                    if (record.model) details.model = record.model.trim();
 
-                    const operator = (row.operator || row.owner)?.trim();
+                    const operator = (record.operator || record.owner)?.trim();
                     if (operator) details.operator = operator;
 
-                    if (row.typecode) details.typecode = row.typecode.trim();
-                    if (row.built) details.built = String(row.built).trim();
+                    if (record.typecode) details.typecode = record.typecode.trim();
+                    if (record.built) details.built = String(record.built).trim();
 
                     this.db.set(icao24, details);
                     count++;
-                })
-                .on('end', () => {
-                    this.isLoaded = true;
-                    console.log(`Aircraft Database parsed ${count} records in ${Date.now() - t}ms`);
-                    resolve();
-                })
-                .on('error', reject);
+                }
+
+                this.isLoaded = true;
+                console.log(`Aircraft Database parsed ${count} records via DuckDB in ${Date.now() - t}ms`);
+                resolve();
+            });
         });
     }
 

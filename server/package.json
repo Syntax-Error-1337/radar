@@ -12,7 +12,9 @@
         "cors": "^2.8.5",
         "csv-parser": "^3.2.0",
         "dotenv": "^16.4.5",
-        "express": "^4.21.0"
+        "duckdb": "^1.4.4",
+        "express": "^4.21.0",
+        "parquetjs-lite": "^0.8.7"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",

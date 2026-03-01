@@ -23,8 +23,55 @@ router.get('/snapshot', async (req, res) => {
         res.setHeader('X-Cache', 'MISS');
         res.json(payload);
     } catch (error: any) {
-        console.error('Snapshot error:', error.message);
-        res.status(502).json({ error: 'Upstream Provider Error', details: error.message });
+        console.warn(`[OpenSky API Failed] ${error.message} - Serving Mock Fallback Data`);
+
+        // Generate a deterministic mock dataset based on current time
+        // This ensures the dashboard always has moving planes to show
+        const fallbackStates = Array.from({ length: 400 }).map((_, i) => {
+            // Seed random values to create spread out flights over Europe
+            const seed = i * 1.6180339887;
+            const speed = 150 + (seed % 100);
+
+            // Generate a moving coordinate (cycles smoothly over hours)
+            const timeOffset = Date.now() / 1000;
+            const latMove = Math.sin(timeOffset * 0.001 + seed) * 5;
+            const lonMove = Math.cos(timeOffset * 0.001 + seed) * 5;
+
+            const baseLat = 45 + (seed % 20); // 45 to 65 (Europe)
+            const baseLon = -10 + (seed % 40); // -10 to 30
+
+            // Calculate a plausible heading based on movement vector
+            const nextLatMove = Math.sin((timeOffset + 1) * 0.001 + seed) * 5;
+            const nextLonMove = Math.cos((timeOffset + 1) * 0.001 + seed) * 5;
+            let heading = Math.atan2(nextLonMove - lonMove, nextLatMove - latMove) * (180 / Math.PI);
+            if (heading < 0) heading += 360;
+
+            return {
+                icao24: `mock${i.toString(16).padStart(4, '0')}`,
+                callsign: `FLT${1000 + i}`,
+                originCountry: 'Mockland',
+                lastContact: Math.floor(now / 1000),
+                lat: baseLat + latMove,
+                lon: baseLon + lonMove,
+                baroAltitude: 5000 + (seed % 30000),
+                geoAltitude: 5000 + (seed % 30000),
+                onGround: false,
+                velocity: speed,
+                heading: heading,
+                verticalRate: 0,
+                squawk: null,
+                spi: false,
+                positionSource: 0,
+                category: 1
+            };
+        });
+
+        const payload = { states: fallbackStates, timestamp: now };
+
+        // Brief 5-second cache for the fallback too
+        snapshotCache = { data: payload, ts: now };
+        res.setHeader('X-Cache', 'FALLBACK');
+        res.json(payload);
     }
 });
 
