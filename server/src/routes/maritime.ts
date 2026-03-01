@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { aisStreamService } from '../core/aisstream';
+import { aisStreamService } from '../core/source/aisstream';
 
 const router = Router();
 
