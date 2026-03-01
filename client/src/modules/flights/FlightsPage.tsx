@@ -1,5 +1,6 @@
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
+import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useFlightsSnapshot } from './hooks/useFlightsSnapshot';
 import { useFlightSelection } from './hooks/useFlightSelection';
@@ -7,6 +8,7 @@ import { useFlightTrack } from './hooks/useFlightTrack';
 import { useFlightsStore } from './state/flights.store';
 import { TrackManager } from './lib/flights.tracks';
 import { statesToPointGeoJSON } from './lib/flights.geojson';
+import { extrapolateState } from './lib/flights.extrapolation';
 import { FlightsToolbar } from './components/FlightsToolbar';
 import { FlightsLeftPanel } from './components/FlightsLeftPanel';
 import { FlightsRightDrawer } from './components/FlightsRightDrawer';
@@ -56,6 +58,7 @@ const iconsPromise = Promise.all(
 });
 
 export const FlightsPage: React.FC = () => {
+    const mapRef = useRef<MapRef>(null);
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
     const { mapProjection, mapLayer } = useThemeStore();
 
@@ -109,12 +112,13 @@ export const FlightsPage: React.FC = () => {
         }
     }, [mapLayer]);
 
-    const [tracksGeoJSON, setTracksGeoJSON] = useState<any>({ type: 'FeatureCollection', features: [] });
+    // Tracks state is now fully handled in requestAnimationFrame loop
+    // no need for React state to manage GeoJSON for better perf
 
     useEffect(() => {
         if (states.length > 0 && timestamp > 0) {
             trackManager.update(states, timestamp);
-            setTracksGeoJSON(trackManager.getLineGeoJSON());
+            // We don't call setTracksGeoJSON here anymore since requestAnimationFrame handles it
         }
     }, [states, timestamp]);
 
@@ -166,6 +170,80 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
+    useEffect(() => {
+        let animationFrameId: number;
+        let lastUpdateTime = 0;
+
+        const animate = (time: number) => {
+            const map = mapRef.current?.getMap();
+            if (map && filteredStates.length > 0) {
+                const zoom = map.getZoom();
+
+                // Adaptive FPS based on zoom level:
+                // <= 5: 1 FPS (every 1000ms)
+                // <= 8: 5 FPS (every 200ms)
+                // > 8: 30 FPS (every 33ms)
+                let updateInterval = 1000;
+                if (zoom > 8) updateInterval = 33;
+                else if (zoom > 5) updateInterval = 200;
+
+                if (time - lastUpdateTime > updateInterval) {
+                    const nowSeconds = Date.now() / 1000;
+                    const extrapolatedStates = filteredStates.map(state => extrapolateState(state, nowSeconds));
+                    const geojson = statesToPointGeoJSON(extrapolatedStates);
+
+                    // Prevent NaN coordinates from reaching Mapbox source
+                    if (!geojson.features.some((f: any) => Number.isNaN(f.geometry.coordinates[0]))) {
+                        const pointsSource = map.getSource('points') as any;
+                        if (pointsSource?.setData) pointsSource.setData(geojson);
+
+                        const haloSource = map.getSource('points-halo') as any;
+                        if (haloSource?.setData) haloSource.setData(geojson);
+
+                        // Also update tracks continuously so the line connects to the moving aircraft
+                        const tracksSource = map.getSource('tracks') as any;
+                        if (tracksSource?.setData) {
+                            tracksSource.setData(trackManager.getLineGeoJSON(extrapolatedStates));
+                        }
+
+                        // Update historical selected track to tightly follow selected aircraft
+                        if (selectedIcao24 && historicalGeoJSON.features.length > 0) {
+                            const selectedState = extrapolatedStates.find(s => s.icao24 === selectedIcao24);
+                            if (selectedState) {
+                                const updatedHistorical = {
+                                    ...historicalGeoJSON,
+                                    features: [{
+                                        ...historicalGeoJSON.features[0],
+                                        geometry: {
+                                            ...historicalGeoJSON.features[0].geometry,
+                                            coordinates: [
+                                                ...historicalGeoJSON.features[0].geometry.coordinates,
+                                                [selectedState.lon, selectedState.lat]
+                                            ]
+                                        }
+                                    }]
+                                };
+                                const historicalSource = map.getSource('historical-tracks') as any;
+                                if (historicalSource?.setData) {
+                                    historicalSource.setData(updatedHistorical);
+                                }
+                            }
+                        }
+                    }
+
+                    lastUpdateTime = time;
+                }
+            }
+            animationFrameId = requestAnimationFrame(animate);
+        };
+
+        animationFrameId = requestAnimationFrame(animate);
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, [filteredStates, selectedIcao24, historicalGeoJSON]);
+
     return (
         <div className="absolute inset-0 bg-intel-bg overflow-hidden flex flex-col">
             <FlightsToolbar />
@@ -175,6 +253,7 @@ export const FlightsPage: React.FC = () => {
 
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
+                    ref={mapRef}
                     key={`map-${mapProjection}`}
                     initialViewState={{
                         longitude: -30,
@@ -192,7 +271,7 @@ export const FlightsPage: React.FC = () => {
                 >
                     <NavigationControl position="top-right" />
 
-                    <Source id="tracks" type="geojson" data={tracksGeoJSON}>
+                    <Source id="tracks" type="geojson" data={{ type: 'FeatureCollection', features: [] }}>
                         {/* Dim track for unselected aircraft */}
                         <Layer
                             id="aircraft-tracks"
