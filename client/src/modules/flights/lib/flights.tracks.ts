@@ -21,7 +21,9 @@ export class TrackManager {
                 this.tracks.set(state.icao24, []);
             }
             const history = this.tracks.get(state.icao24)!;
-            // Avoid duplicates
+            // Avoid duplicates and nulls/NaNs
+            if (state.lat == null || state.lon == null || Number.isNaN(state.lat) || Number.isNaN(state.lon)) continue;
+
             const last = history[history.length - 1];
             if (!last || last.lat !== state.lat || last.lon !== state.lon) {
                 history.push({ lat: state.lat, lon: state.lon, timestamp: currentTimeMs });
@@ -48,7 +50,9 @@ export class TrackManager {
 
         if (extrapolatedStates) {
             for (const state of extrapolatedStates) {
-                extraPoints.set(state.icao24, { lat: state.lat, lon: state.lon, timestamp: Date.now() });
+                if (state.lat != null && state.lon != null && !Number.isNaN(state.lat) && !Number.isNaN(state.lon)) {
+                    extraPoints.set(state.icao24, { lat: state.lat, lon: state.lon, timestamp: Date.now() });
+                }
             }
         }
 

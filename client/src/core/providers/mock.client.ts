@@ -10,11 +10,11 @@ export class MockClient implements FlightProvider {
         // Simulate network delay
         await new Promise(r => setTimeout(r, 200));
 
-        const states: AircraftState[] = (data.states || []).map((s: any) => ({
+        const states: AircraftState[] = (data.states || []).map((s: Array<string | number | boolean | null>) => ({
             icao24: String(s[0] || 'unknown'),
             callsign: s[1] ? String(s[1]).trim() : null,
-            originCountry: s[2] || null,
-            lastContact: s[4] || s[3] || 0,
+            originCountry: String(s[2] || ''),
+            lastContact: Number(s[4] || s[3] || 0),
             lon: typeof s[5] === 'number' ? s[5] : 0,
             lat: typeof s[6] === 'number' ? s[6] : 0,
             baroAltitude: typeof s[7] === 'number' ? s[7] : null,
@@ -23,7 +23,7 @@ export class MockClient implements FlightProvider {
             heading: typeof s[10] === 'number' ? s[10] : null,
             verticalRate: typeof s[11] === 'number' ? s[11] : null,
             geoAltitude: typeof s[13] === 'number' ? s[13] : null,
-            squawk: s[14] || null,
+            squawk: s[14] ? String(s[14]) : null,
             spi: !!s[15],
             positionSource: typeof s[16] === 'number' ? s[16] : 0,
             category: typeof s[17] === 'number' ? s[17] : 0,
@@ -32,7 +32,7 @@ export class MockClient implements FlightProvider {
         return { states, timestamp: Date.now() };
     }
 
-    async track(_icao24: string): Promise<any> {
+    async track(): Promise<unknown> {
         // Mock doesn't carry full track history yet, could simulate fake ones
         return null;
     }
