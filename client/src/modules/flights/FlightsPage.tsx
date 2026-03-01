@@ -170,6 +170,17 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
+    const onStyleData = useCallback((e: any) => {
+        const map = e.target;
+        if (iconsLoaded) {
+            Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
+                if (!map.hasImage(id)) {
+                    map.addImage(id, img);
+                }
+            });
+        }
+    }, []);
+
     useEffect(() => {
         let animationFrameId: number;
         let lastUpdateTime = 0;
@@ -254,7 +265,7 @@ export const FlightsPage: React.FC = () => {
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
                     ref={mapRef}
-                    key={`map-${mapProjection}`}
+                    key={`map-${mapProjection}-${mapLayer}`}
                     initialViewState={{
                         longitude: -30,
                         latitude: 40,
@@ -265,11 +276,17 @@ export const FlightsPage: React.FC = () => {
                     onClick={onClick}
                     cursor={selectedIcao24 ? "pointer" : "crosshair"}
                     onLoad={onMapLoad}
+                    onStyleData={onStyleData}
                     onStyleImageMissing={onStyleImageMissing}
                     projection={mapProjection === 'globe' ? { type: 'globe' } as any : undefined}
+                    doubleClickZoom={mapProjection !== 'globe'}
                     style={{ width: '100%', height: '100%' }}
                 >
-                    <NavigationControl position="top-right" />
+                    <NavigationControl
+                        position="top-right"
+                        showCompass={true}
+                        visualizePitch={true}
+                    />
 
                     <Source id="tracks" type="geojson" data={{ type: 'FeatureCollection', features: [] }}>
                         {/* Dim track for unselected aircraft */}
