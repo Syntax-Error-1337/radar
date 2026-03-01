@@ -164,7 +164,44 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
                             </div>
 
                             <div className="text-intel-text">Track</div>
-                            <div className="text-intel-text-light text-right">{flight.heading ? flight.heading.toFixed(1) + '°' : 'n/a'}</div>
+                            <div className="text-intel-text-light text-right">{flight.heading != null ? flight.heading.toFixed(1) + '°' : 'n/a'}</div>
+
+                            {flight.true_heading != null && (
+                                <>
+                                    <div className="text-intel-text">True Hdg</div>
+                                    <div className="text-intel-text-light text-right">{flight.true_heading.toFixed(1)}°</div>
+                                </>
+                            )}
+                            {flight.mag_heading != null && (
+                                <>
+                                    <div className="text-intel-text">Mag. Hdg</div>
+                                    <div className="text-intel-text-light text-right">{flight.mag_heading.toFixed(1)}°</div>
+                                </>
+                            )}
+                            {flight.roll != null && (
+                                <>
+                                    <div className="text-intel-text">Roll Angle</div>
+                                    <div className="text-intel-text-light text-right">{flight.roll.toFixed(1)}°</div>
+                                </>
+                            )}
+                            {flight.ias != null && (
+                                <>
+                                    <div className="text-intel-text">IAS</div>
+                                    <div className="text-intel-text-light text-right">{flight.ias} kt</div>
+                                </>
+                            )}
+                            {flight.tas != null && (
+                                <>
+                                    <div className="text-intel-text">TAS</div>
+                                    <div className="text-intel-text-light text-right">{flight.tas} kt</div>
+                                </>
+                            )}
+                            {flight.mach != null && (
+                                <>
+                                    <div className="text-intel-text">Mach</div>
+                                    <div className="text-intel-text-light text-right">{flight.mach.toFixed(3)}</div>
+                                </>
+                            )}
 
                             <div className="text-intel-text">Pos.</div>
                             <div className="text-intel-text-light text-right truncate">
@@ -172,6 +209,68 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Environment */}
+                    {(flight.wd != null || flight.ws != null || flight.oat != null || flight.tat != null) && (
+                        <div>
+                            <div className="text-intel-text-light font-bold text-xs mb-2 uppercase border-l-2 border-intel-accent pl-2">Environment</div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] font-mono mb-6">
+                                {(flight.wd != null || flight.ws != null) && (
+                                    <>
+                                        <div className="text-intel-text">Wind</div>
+                                        <div className="text-intel-text-light text-right">
+                                            {flight.wd != null ? `${flight.wd}° ` : ''}{flight.ws != null ? `@ ${flight.ws} kt` : ''}
+                                        </div>
+                                    </>
+                                )}
+                                {flight.oat != null && (
+                                    <>
+                                        <div className="text-intel-text">Outside Air Temp</div>
+                                        <div className="text-intel-text-light text-right">{flight.oat}°C</div>
+                                    </>
+                                )}
+                                {flight.tat != null && (
+                                    <>
+                                        <div className="text-intel-text">Total Air Temp</div>
+                                        <div className="text-intel-text-light text-right">{flight.tat}°C</div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Autopilot / FMS */}
+                    {(flight.nav_altitude_mcp != null || flight.nav_heading != null || flight.nav_qnh != null || (flight.nav_modes && flight.nav_modes.length > 0)) && (
+                        <div>
+                            <div className="text-intel-text-light font-bold text-xs mb-2 uppercase border-l-2 border-intel-accent pl-2">Autopilot / FMS</div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] font-mono mb-6">
+                                {flight.nav_altitude_mcp != null && (
+                                    <>
+                                        <div className="text-intel-text">Target Alt (MCP)</div>
+                                        <div className="text-intel-text-light text-right">{flight.nav_altitude_mcp} ft</div>
+                                    </>
+                                )}
+                                {flight.nav_heading != null && (
+                                    <>
+                                        <div className="text-intel-text">Target Hdg</div>
+                                        <div className="text-intel-text-light text-right">{flight.nav_heading}°</div>
+                                    </>
+                                )}
+                                {flight.nav_qnh != null && (
+                                    <>
+                                        <div className="text-intel-text">Altimeter (QNH)</div>
+                                        <div className="text-intel-text-light text-right">{flight.nav_qnh} mb</div>
+                                    </>
+                                )}
+                                {flight.nav_modes && flight.nav_modes.length > 0 && (
+                                    <>
+                                        <div className="text-intel-text">Active Modes</div>
+                                        <div className="text-intel-text-light text-right">{flight.nav_modes.join(', ')}</div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Status */}
                     <div>
@@ -198,6 +297,25 @@ export const FlightsRightDrawer: React.FC<Props> = ({ flight, onClose }) => {
 
                             <div className="text-intel-text">Last Contact</div>
                             <div className="text-intel-text-light text-right">{formatAge(flight.lastContact)}</div>
+
+                            {flight.rssi != null && (
+                                <>
+                                    <div className="text-intel-text">RSSI</div>
+                                    <div className="text-intel-text-light text-right">{flight.rssi.toFixed(1)} dBFS</div>
+                                </>
+                            )}
+                            {flight.rc != null && (
+                                <>
+                                    <div className="text-intel-text">Containment Rad.</div>
+                                    <div className="text-intel-text-light text-right">{flight.rc} m</div>
+                                </>
+                            )}
+                            {flight.emergency && (
+                                <>
+                                    <div className="text-intel-text">Emergency</div>
+                                    <div className="text-intel-warn font-bold text-right uppercase animate-pulse">{flight.emergency}</div>
+                                </>
+                            )}
                         </div>
                     </div>
 

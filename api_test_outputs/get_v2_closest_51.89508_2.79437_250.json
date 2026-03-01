@@ -1,0 +1,83 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/v2/closest/51.89508/2.79437/250",
+    "path_params": {
+      "lat": 51.89508,
+      "lon": 2.79437,
+      "radius": 250
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:11 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "502",
+      "Connection": "keep-alive",
+      "Cache-Control": "no-store",
+      "Content-Encoding": "zstd"
+    },
+    "payload": {
+      "ac": [
+        {
+          "hex": "400f9a",
+          "type": "adsb_icao",
+          "flight": "BAW853S ",
+          "r": "G-DBCK",
+          "t": "A319",
+          "alt_baro": 38000,
+          "alt_geom": 37700,
+          "gs": 411.1,
+          "ias": 247,
+          "tas": 448,
+          "mach": 0.78,
+          "wd": 300,
+          "ws": 45,
+          "oat": -56,
+          "tat": -29,
+          "track": 264.28,
+          "track_rate": 0.0,
+          "roll": 0.18,
+          "mag_heading": 265.61,
+          "true_heading": 267.66,
+          "baro_rate": -64,
+          "geom_rate": -32,
+          "squawk": "3557",
+          "emergency": "none",
+          "category": "A3",
+          "nav_qnh": 1012.8,
+          "nav_altitude_mcp": 27008,
+          "lat": 51.836988,
+          "lon": 2.983856,
+          "nic": 8,
+          "rc": 186,
+          "seen_pos": 0.403,
+          "version": 2,
+          "nic_baro": 1,
+          "nac_p": 9,
+          "nac_v": 1,
+          "sil": 3,
+          "sil_type": "perhour",
+          "gva": 2,
+          "sda": 2,
+          "alert": 0,
+          "spi": 0,
+          "mlat": [],
+          "tisb": [],
+          "messages": 83438,
+          "seen": 0.0,
+          "rssi": -11.2,
+          "dst": 7.831,
+          "dir": 116.3
+        }
+      ],
+      "msg": "No error",
+      "now": 1772363231500,
+      "total": 1,
+      "ctime": 1772363231500,
+      "ptime": 0
+    }
+  }
+}

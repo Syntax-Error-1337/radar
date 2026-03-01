@@ -72,6 +72,13 @@ export async function fetchStates(): Promise<AircraftState[]> {
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
+        // If we hit a rate limit (429) or server error, but we have ANY old data cached,
+        // return the stale data instead of breaking the app.
+        const staleCached = openskyCache.get();
+        if (staleCached && staleCached.length > 0) {
+            console.warn(`[OpenSky API] ${response.status} ${response.statusText}. Using stale cache fallback.`);
+            return staleCached;
+        }
         throw new Error(`OpenSky API Error: ${response.status} ${response.statusText}`);
     }
 

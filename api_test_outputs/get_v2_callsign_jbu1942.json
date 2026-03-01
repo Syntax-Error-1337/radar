@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "https://api.adsb.lol/v2/callsign/JBU1942",
+    "path_params": {
+      "callsign": "JBU1942"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Date": "Sun, 01 Mar 2026 11:07:10 GMT",
+      "Content-Type": "application/json",
+      "Content-Length": "87",
+      "Connection": "keep-alive",
+      "Cache-Control": "no-store",
+      "Content-Encoding": "zstd"
+    },
+    "payload": {
+      "ac": [],
+      "msg": "No error",
+      "now": 1772363230000,
+      "total": 0,
+      "ctime": 1772363230000,
+      "ptime": 0
+    }
+  }
+}

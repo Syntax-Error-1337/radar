@@ -3,7 +3,7 @@ import type { AircraftState } from './flights.types';
 
 
 export function extrapolateState(state: AircraftState, nowSeconds: number): AircraftState {
-    if (state.onGround || state.velocity == null || state.heading == null || state.lastContact == null) {
+    if (state.onGround || state.velocity == null || state.heading == null || state.lastContact == null || state.lat == null || state.lon == null) {
         return state;
     }
 

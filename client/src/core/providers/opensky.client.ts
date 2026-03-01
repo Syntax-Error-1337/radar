@@ -10,7 +10,7 @@ export class OpenSkyClient implements FlightProvider {
         return { states: data.states || [], timestamp: data.timestamp || Date.now() };
     }
 
-    async track(icao24: string): Promise<any> {
+    async track(icao24: string): Promise<unknown> {
         const res = await fetch(`/api/flights/track/${icao24}`);
         if (!res.ok) {
             if (res.status === 404) return null; // No track found

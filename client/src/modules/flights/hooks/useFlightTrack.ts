@@ -15,7 +15,7 @@ export function useFlightTrack(icao24: string | null) {
             if (!icao24) return null;
             try {
                 return await provider.track(icao24);
-            } catch (err) {
+            } catch {
                 console.warn(`Failed to track ${icao24}, falling back to null.`);
                 return null;
             }

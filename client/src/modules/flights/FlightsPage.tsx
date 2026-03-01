@@ -19,14 +19,14 @@ const trackManager = new TrackManager(5);
 
 // Preload the flight.svg icon at module level so it's always available
 let flightIconImg: HTMLImageElement | null = null;
-const flightIconPromise = new Promise<HTMLImageElement>((resolve) => {
+new Promise<HTMLImageElement>((resolve) => {
     const img = new Image(64, 64);
     img.addEventListener('load', () => { flightIconImg = img; resolve(img); });
     img.src = '/flight.svg';
 });
 
 /** Add flight-icon to the map if not already present */
-function addFlightIcon(map: any) {
+function addFlightIcon(map: import('maplibre-gl').Map) {
     if (flightIconImg && !map.hasImage('flight-icon')) {
         map.addImage('flight-icon', flightIconImg);
     }
@@ -92,12 +92,13 @@ export const FlightsPage: React.FC = () => {
             if (map) {
                 map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
             }
+            // eslint-disable-next-line
             setIconScreenPos(null);
         }
     }, [onboardMode]);
 
     const { data, isError } = useFlightsSnapshot();
-    const states = data?.states || [];
+    const states = useMemo(() => data?.states || [], [data?.states]);
     const timestamp = data?.timestamp || 0;
 
     const { filters } = useFlightsStore();
@@ -130,7 +131,7 @@ export const FlightsPage: React.FC = () => {
             minzoom: 0,
             maxzoom: 19
         }]
-    } as any), []);
+    } as import('maplibre-gl').StyleSpecification), []);
 
     const activeMapStyle = useMemo(() => {
         // Force satellite when in 3D onboard mode so the ground is visible
@@ -156,13 +157,18 @@ export const FlightsPage: React.FC = () => {
 
     const pointsGeoJSON = useMemo(() => statesToPointGeoJSON(filteredStates), [filteredStates]);
 
-    const historicalGeoJSON = useMemo<any>(() => {
-        if (!trackHistory || !trackHistory.path) return { type: 'FeatureCollection', features: [] };
+    const historicalGeoJSON = useMemo<{ type: 'FeatureCollection'; features: Array<{ type: 'Feature'; geometry: { type: 'LineString'; coordinates: number[][] }; properties: { icao24: string | null } }> }>(() => {
+        const pathData = (trackHistory as { path?: number[][] })?.path;
+        if (!pathData) return { type: 'FeatureCollection', features: [] };
 
-        // OpenSky paths are arrays of [time, lat, lon, baro, track, on_ground]
-        const coordinates = trackHistory.path
-            .filter((pt: any) => pt[1] !== null && pt[2] !== null)
-            .map((pt: any) => [pt[2], pt[1]]); // Map to [lon, lat] for GeoJSON
+        // OpenSky/ADSB paths are arrays of [time, lat, lon...]
+        const coordinates = pathData
+            .filter((pt: Array<number>) => pt[1] != null && pt[2] != null && !Number.isNaN(pt[1]) && !Number.isNaN(pt[2]))
+            .map((pt: Array<number>) => [pt[2], pt[1]]); // Map to [lon, lat] for GeoJSON
+
+        if (coordinates.length < 2) {
+            return { type: 'FeatureCollection', features: [] };
+        }
 
         return {
             type: 'FeatureCollection',
@@ -174,7 +180,7 @@ export const FlightsPage: React.FC = () => {
         };
     }, [trackHistory, selectedIcao24]);
 
-    const onClick = (e: any) => {
+    const onClick = (e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
         const feature = e.features?.[0];
         if (feature && feature.properties?.icao24) {
             setSelectedIcao24(feature.properties.icao24);
@@ -183,7 +189,7 @@ export const FlightsPage: React.FC = () => {
         }
     };
 
-    const onMapLoad = useCallback((e: any) => {
+    const onMapLoad = useCallback((e: { target: import('maplibre-gl').Map }) => {
         const map = e.target;
         if (iconsLoaded) {
             Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
@@ -195,7 +201,7 @@ export const FlightsPage: React.FC = () => {
 
     // Clean up: no custom WebGL layers needed anymore
 
-    const onStyleImageMissing = useCallback((e: any) => {
+    const onStyleImageMissing = useCallback((e: { id: string; target: import('maplibre-gl').Map }) => {
         const id = e.id;
         const map = e.target;
         if (PRELOADED_ICONS[id] && !map.hasImage(id)) {
@@ -203,7 +209,7 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
-    const onMoveStart = useCallback((e: any) => {
+    const onMoveStart = useCallback((e: { originalEvent?: Event }) => {
         if (e.originalEvent) {
             const store = useFlightsStore.getState();
             if (store.cameraTrackMode) store.setCameraTrackMode(false);
@@ -211,7 +217,7 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
-    const onStyleData = useCallback((e: any) => {
+    const onStyleData = useCallback((e: { dataType: string; target: import('maplibre-gl').Map }) => {
         // Only act on full style reloads, not on individual tile/source load events.
         // Without this guard this callback fires hundreds of times per second during
         // map panning, re-adding icons on every tile.
@@ -256,7 +262,7 @@ export const FlightsPage: React.FC = () => {
                     const geojson = statesToPointGeoJSON(extrapolatedStates);
 
                     // Prevent NaN coordinates from reaching MapLibre source
-                    if (!geojson.features.some((f: any) => Number.isNaN(f.geometry.coordinates[0]))) {
+                    if (!geojson.features.some((f: { geometry: { coordinates: number[] } }) => Number.isNaN(f.geometry.coordinates[0]))) {
 
                         // Camera Tracking & Onboard Mode — read store directly to avoid
                         // adding store slices to the dep array and restarting the loop.
@@ -288,14 +294,14 @@ export const FlightsPage: React.FC = () => {
                             setIconScreenPos(null);
                         }
 
-                        const pointsSource = map.getSource('points') as any;
+                        const pointsSource = map.getSource('points') as import('maplibre-gl').GeoJSONSource;
                         if (pointsSource?.setData) pointsSource.setData(geojson);
 
-                        const haloSource = map.getSource('points-halo') as any;
+                        const haloSource = map.getSource('points-halo') as import('maplibre-gl').GeoJSONSource;
                         if (haloSource?.setData) haloSource.setData(geojson);
 
                         // Update breadcrumb tracks so the line always connects to the live aircraft
-                        const tracksSource = map.getSource('tracks') as any;
+                        const tracksSource = map.getSource('tracks') as import('maplibre-gl').GeoJSONSource;
                         if (tracksSource?.setData) {
                             tracksSource.setData(trackManager.getLineGeoJSON(extrapolatedStates));
                         }
@@ -304,7 +310,7 @@ export const FlightsPage: React.FC = () => {
                         const liveHistorical = historicalGeoJSONRef.current;
                         if (selectedIcao24 && liveHistorical.features.length > 0) {
                             const selectedState = extrapolatedStates.find(s => s.icao24 === selectedIcao24);
-                            if (selectedState) {
+                            if (selectedState && selectedState.lon != null && selectedState.lat != null && !Number.isNaN(selectedState.lon) && !Number.isNaN(selectedState.lat)) {
                                 const updatedHistorical = {
                                     ...liveHistorical,
                                     features: [{
@@ -318,7 +324,7 @@ export const FlightsPage: React.FC = () => {
                                         }
                                     }]
                                 };
-                                const historicalSource = map.getSource('historical-tracks') as any;
+                                const historicalSource = map.getSource('historical-tracks') as import('maplibre-gl').GeoJSONSource;
                                 if (historicalSource?.setData) {
                                     historicalSource.setData(updatedHistorical);
                                 }
@@ -338,7 +344,7 @@ export const FlightsPage: React.FC = () => {
             cancelAnimationFrame(animationFrameId);
         };
         // historicalGeoJSON intentionally excluded — accessed via ref to avoid restarting the loop
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [filteredStates, selectedIcao24]);
 
     return (
@@ -369,7 +375,7 @@ export const FlightsPage: React.FC = () => {
                     onLoad={onMapLoad}
                     onStyleData={onStyleData}
                     onStyleImageMissing={onStyleImageMissing}
-                    projection={mapProjection === 'globe' ? { type: 'globe' } as any : undefined}
+                    projection={mapProjection === 'globe' ? { type: 'globe' } as import('maplibre-gl').ProjectionSpecification : { type: 'mercator' } as import('maplibre-gl').ProjectionSpecification}
                     doubleClickZoom={mapProjection !== 'globe'}
                     style={{ width: '100%', height: '100%' }}
                 >
@@ -473,6 +479,6 @@ export const FlightsPage: React.FC = () => {
                 isError={isError}
                 provider={import.meta.env.VITE_FLIGHT_PROVIDER || 'opensky'}
             />
-        </div>
+        </div >
     );
 };

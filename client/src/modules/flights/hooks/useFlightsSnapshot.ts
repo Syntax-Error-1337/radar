@@ -14,7 +14,7 @@ export function useFlightsSnapshot() {
         queryFn: async () => {
             try {
                 return await provider.snapshot();
-            } catch (e) {
+            } catch {
                 console.warn('Primary provider failed, falling back to mock');
                 return await new MockClient().snapshot();
             }

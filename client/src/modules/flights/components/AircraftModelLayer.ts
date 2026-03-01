@@ -154,7 +154,7 @@ export class AircraftModelLayer implements CustomLayerInterface {
         const gl = this.gl;
 
         // Get the proj matrix from MapLibre v5
-        const matrix: number[] = (options as any)?.defaultProjectionData?.mainMatrix;
+        const matrix: number[] | undefined = (options as { defaultProjectionData?: { mainMatrix?: number[] } })?.defaultProjectionData?.mainMatrix;
         if (!matrix) return;
 
         // Compute Mercator position & scale
