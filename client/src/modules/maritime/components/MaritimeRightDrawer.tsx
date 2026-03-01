@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Target, X, Share2, AlertTriangle, Info } from 'lucide-react';
 import type { VesselState } from '../hooks/useMaritimeSnapshot';
 
@@ -7,7 +7,7 @@ interface MaritimeRightDrawerProps {
     onClose: () => void;
 }
 
-// Convert DD to DMS (Degrees, Minutes, Seconds) for authentic look
+// Convert DD to DMS (Degrees, Minutes, Seconds)
 function toDMS(coordinate: number, pos: string, neg: string): string {
     const absolute = Math.abs(coordinate);
     const degrees = Math.floor(absolute);
@@ -20,56 +20,69 @@ function toDMS(coordinate: number, pos: string, neg: string): string {
 
 const getNavStatusString = (status: number) => {
     switch (status) {
-        case 0: return "UNDER WAY USING ENGINE";
-        case 1: return "AT ANCHOR";
-        case 2: return "NOT UNDER COMMAND";
-        case 3: return "RESTRICTED MANOEUVRABILITY";
-        case 4: return "CONSTRAINED BY DRAUGHT";
-        case 5: return "MOORED";
-        case 6: return "AGROUND";
-        case 7: return "ENGAGED IN FISHING";
-        case 8: return "UNDER WAY SAILING";
-        case 14: return "AIS-SART";
-        case 15: default: return "NOT DEFINED";
+        case 0: return 'UNDER WAY USING ENGINE';
+        case 1: return 'AT ANCHOR';
+        case 2: return 'NOT UNDER COMMAND';
+        case 3: return 'RESTRICTED MANOEUVRABILITY';
+        case 4: return 'CONSTRAINED BY DRAUGHT';
+        case 5: return 'MOORED';
+        case 6: return 'AGROUND';
+        case 7: return 'ENGAGED IN FISHING';
+        case 8: return 'UNDER WAY SAILING';
+        case 14: return 'AIS-SART';
+        default: return 'NOT DEFINED';
     }
 };
 
 const getShipTypeString = (type: number) => {
-    if (type >= 20 && type <= 29) return "WING IN GROUND";
-    if (type === 30) return "FISHING";
-    if (type >= 31 && type <= 32) return "TOWING";
-    if (type === 33) return "DREDGING";
-    if (type === 34) return "DIVING";
-    if (type === 35) return "MILITARY";
-    if (type === 36) return "SAILING";
-    if (type === 37) return "PLEASURE CRAFT";
-    if (type >= 40 && type <= 49) return "HIGH SPEED CRAFT";
-    if (type === 50) return "PILOT VESSEL";
-    if (type === 51) return "SEARCH AND RESCUE";
-    if (type === 52) return "TUG";
-    if (type === 53) return "PORT TENDER";
-    if (type === 54) return "ANTI-POLLUTION";
-    if (type === 55) return "LAW ENFORCEMENT";
-    if (type === 58) return "MEDICAL";
-    if (type >= 60 && type <= 69) return "PASSENGER";
-    if (type >= 70 && type <= 79) return "CARGO";
-    if (type >= 80 && type <= 89) return "TANKER";
-    return "UNKNOWN/OTHER";
-}
+    if (type >= 20 && type <= 29) return 'WING IN GROUND';
+    if (type === 30) return 'FISHING';
+    if (type >= 31 && type <= 32) return 'TOWING';
+    if (type === 33) return 'DREDGING';
+    if (type === 34) return 'DIVING';
+    if (type === 35) return 'MILITARY';
+    if (type === 36) return 'SAILING';
+    if (type === 37) return 'PLEASURE CRAFT';
+    if (type >= 40 && type <= 49) return 'HIGH SPEED CRAFT';
+    if (type === 50) return 'PILOT VESSEL';
+    if (type === 51) return 'SEARCH AND RESCUE';
+    if (type === 52) return 'TUG';
+    if (type === 53) return 'PORT TENDER';
+    if (type === 54) return 'ANTI-POLLUTION';
+    if (type === 55) return 'LAW ENFORCEMENT';
+    if (type === 58) return 'MEDICAL';
+    if (type >= 60 && type <= 69) return 'PASSENGER';
+    if (type >= 70 && type <= 79) return 'CARGO';
+    if (type >= 80 && type <= 89) return 'TANKER';
+    return 'UNKNOWN/OTHER';
+};
 
 export const MaritimeRightDrawer: React.FC<MaritimeRightDrawerProps> = ({ vessel, onClose }) => {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
+    // Live age counter — re-ticks every second so "Xs ago" stays current.
+    // The stale-data warning at 120s will appear automatically without needing
+    // a vessel update to trigger a re-render.
+    const [ageSeconds, setAgeSeconds] = useState(0);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => {
+        if (!vessel) return;
+        // Immediately compute on open/change, then tick every second
+        const tick = () => setAgeSeconds(Math.floor((Date.now() - vessel.lastUpdate) / 1000));
+        tick();
+        intervalRef.current = setInterval(tick, 1000);
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    }, [vessel?.lastUpdate]); // only restart when lastUpdate changes (new AIS packet)
 
     if (!vessel) return null;
 
     const latDMS = toDMS(vessel.lat, 'N', 'S');
     const lonDMS = toDMS(vessel.lon, 'E', 'W');
     const isMoored = vessel.navigationalStatus === 1 || vessel.navigationalStatus === 5;
-    const ageSeconds = Math.floor((Date.now() - vessel.lastUpdate) / 1000);
 
     return (
-        <div className={`absolute top-10 right-0 bottom-8 w-96 bg-intel-panel/95 backdrop-blur-md border-l border-intel-accent/30 shadow-2xl z-20 flex flex-col font-mono text-sm transition-transform duration-300 ease-out ${mounted ? 'translate-x-0' : 'translate-x-full'}`}>
+        // CSS-only slide-in — no extra render, no mounted state trick.
+        // animate-in + slide-in-from-right are Tailwind v3 animation utilities.
+        <div className="absolute top-10 right-0 bottom-8 w-96 bg-intel-panel/95 backdrop-blur-md border-l border-intel-accent/30 shadow-2xl z-20 flex flex-col font-mono text-sm animate-in slide-in-from-right duration-300">
 
             {/* Header */}
             <div className="flex items-start justify-between p-4 border-b border-white/10 bg-gradient-to-b from-white/5 to-transparent relative overflow-hidden">
@@ -114,7 +127,7 @@ export const MaritimeRightDrawer: React.FC<MaritimeRightDrawerProps> = ({ vessel
 
                         <div>
                             <div className="text-[10px] text-intel-text uppercase tracking-widest mb-1">SPEED OVER GROUND</div>
-                            <div className="text-lg font-medium text-intel-accent tabular-nums relative inline-block">
+                            <div className="text-lg font-medium text-intel-accent tabular-nums">
                                 {vessel.sog.toFixed(1)} <span className="text-xs text-intel-text font-normal">kn</span>
                             </div>
                         </div>
@@ -159,7 +172,7 @@ export const MaritimeRightDrawer: React.FC<MaritimeRightDrawerProps> = ({ vessel
                         </li>
                         <li className="flex flex-col">
                             <span className="text-[10px] text-intel-text uppercase tracking-wider mb-0.5">LAST DATA UPDATE</span>
-                            <span className={`text-white font-medium ${ageSeconds > 60 ? 'text-amber-400' : ''}`}>
+                            <span className={`text-white font-medium tabular-nums ${ageSeconds > 60 ? 'text-amber-400' : ''}`}>
                                 {ageSeconds}s ago
                             </span>
                         </li>
@@ -175,6 +188,12 @@ export const MaritimeRightDrawer: React.FC<MaritimeRightDrawerProps> = ({ vessel
                                 <span className="text-white font-medium">{vessel.dimension.a + vessel.dimension.b}m x {vessel.dimension.c + vessel.dimension.d}m</span>
                             </li>
                         )}
+                        {vessel.history && (
+                            <li className="flex flex-col">
+                                <span className="text-[10px] text-intel-text uppercase tracking-wider mb-0.5">TRACK HISTORY</span>
+                                <span className="text-white font-medium">{vessel.history.length} position{vessel.history.length !== 1 ? 's' : ''}</span>
+                            </li>
+                        )}
                     </ul>
                 </div>
 
@@ -185,7 +204,7 @@ export const MaritimeRightDrawer: React.FC<MaritimeRightDrawerProps> = ({ vessel
                     </div>
                 )}
 
-                {/* Warning Context if old data */}
+                {/* Warning: stale data */}
                 {ageSeconds > 120 && (
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded p-3 text-xs text-amber-200/80 flex items-start space-x-3 mt-4">
                         <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />

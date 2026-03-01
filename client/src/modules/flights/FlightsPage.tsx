@@ -123,7 +123,6 @@ export const FlightsPage: React.FC = () => {
             case 'light': return MAP_STYLE_URLS.light;
             case 'street': return MAP_STYLE_URLS.street;
             case 'satellite': return SATELLITE_STYLE;
-            case 'nautical': return MAP_STYLE_URLS.nautical;
             case 'dark':
             default: return MAP_STYLE_URLS.dark;
         }

@@ -23,7 +23,7 @@ export const MapLayerControl: React.FC = () => {
         };
     }, [isOpen]);
 
-    const mapTypes: { id: MapLayer; label: string; bgClass: string; imgPath?: string }[] = [
+    const mapTypes: { id: MapLayer; label: string; bgClass: string }[] = [
         {
             id: 'street',
             label: 'Default',
@@ -44,11 +44,6 @@ export const MapLayerControl: React.FC = () => {
             label: 'Dark',
             bgClass: 'bg-[#2E3136]',
         },
-        {
-            id: 'nautical',
-            label: 'Nautical',
-            bgClass: 'bg-[#5B9DC9]',
-        }
     ];
 
     return (
@@ -112,15 +107,7 @@ export const MapLayerControl: React.FC = () => {
                                                             <div className="absolute bottom-2 right-1 w-6 h-1 bg-white transform -rotate-45" />
                                                         </>
                                                     )}
-                                                    {type.id === 'nautical' && (
-                                                        <>
-                                                            <div className="absolute inset-0 bg-[#3d85b5]/30" />
-                                                            <div className="absolute top-3 left-0 right-0 h-0.5 bg-[#1a5f8a]/60 transform -rotate-3" />
-                                                            <div className="absolute top-5 left-0 right-0 h-0.5 bg-[#1a5f8a]/40 transform rotate-1" />
-                                                            <div className="absolute bottom-3 left-1 w-4 h-2 bg-white/50 rounded-sm" />
-                                                            <div className="absolute bottom-6 right-2 w-1 h-4 bg-red-500/70" />
-                                                        </>
-                                                    )}
+
                                                 </div>
                                             </div>
                                             <span className={`text-[11px] font-medium transition-colors ${isSelected ? 'text-[#1A73E8]' : 'text-[#70757A]'

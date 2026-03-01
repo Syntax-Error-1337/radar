@@ -1,29 +1,37 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { useMaritimeStore } from '../state/maritime.store';
-import { Map } from 'lucide-react';
 
 interface MaritimeToolbarProps {
     totalCount: number;
     filteredCount: number;
-    /** Optional override for the chart toggle — used by MaritimePage to add smart zoom/layer behaviour */
-    onChartToggle?: (on: boolean) => void;
 }
 
+/**
+ * Fine-grained Zustand selectors — each field subscribes independently so the
+ * toolbar only re-renders when the specific slice it uses changes.
+ * Previously it subscribed to the whole store object.
+ */
 export const MaritimeToolbar: React.FC<MaritimeToolbarProps> = ({
     totalCount,
     filteredCount,
-    onChartToggle,
 }) => {
-    const { filters, setFilter, showNauticalChart, setShowNauticalChart } = useMaritimeStore();
+    const name = useMaritimeStore(s => s.filters.name);
+    const speedMin = useMaritimeStore(s => s.filters.speedMin);
+    const showUnderway = useMaritimeStore(s => s.filters.showUnderway);
+    const showMoored = useMaritimeStore(s => s.filters.showMoored);
+    const setFilter = useMaritimeStore(s => s.setFilter);
 
-    const handleChart = () => {
-        const next = !showNauticalChart;
-        if (onChartToggle) {
-            onChartToggle(next);
-        } else {
-            setShowNauticalChart(next);
-        }
-    };
+    // Local debounce state for the name input — avoids rebuilding filteredVessels
+    // on every keystroke; commits to the store after 300 ms of no typing.
+    const [localName, setLocalName] = useState(name);
+    const nameTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.toUpperCase();
+        setLocalName(val);
+        if (nameTimerRef.current) clearTimeout(nameTimerRef.current);
+        nameTimerRef.current = setTimeout(() => setFilter('name', val), 300);
+    }, [setFilter]);
 
     return (
         <div className="absolute top-0 left-0 right-0 h-10 bg-intel-panel border-b border-intel-border/50 flex items-center px-4 justify-between z-10 shrink-0 font-mono shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
@@ -44,8 +52,8 @@ export const MaritimeToolbar: React.FC<MaritimeToolbarProps> = ({
                         <span className="text-[10px] text-intel-text uppercase tracking-widest font-bold">NAME</span>
                         <input
                             type="text"
-                            value={filters.name}
-                            onChange={(e) => setFilter('name', e.target.value.toUpperCase())}
+                            value={localName}
+                            onChange={handleNameChange}
                             className="bg-intel-bg border border-white/10 text-white text-xs px-2 py-0.5 w-24 focus:outline-none focus:border-intel-accent focus:ring-1 focus:ring-intel-accent/50"
                             placeholder="ANY"
                         />
@@ -55,7 +63,7 @@ export const MaritimeToolbar: React.FC<MaritimeToolbarProps> = ({
                         <span className="text-[10px] text-intel-text uppercase tracking-widest font-bold">UNDERWAY</span>
                         <input
                             type="checkbox"
-                            checked={filters.showUnderway}
+                            checked={showUnderway}
                             onChange={(e) => setFilter('showUnderway', e.target.checked)}
                             className="accent-intel-accent cursor-pointer"
                         />
@@ -65,7 +73,7 @@ export const MaritimeToolbar: React.FC<MaritimeToolbarProps> = ({
                         <span className="text-[10px] text-intel-text uppercase tracking-widest font-bold">MOORED</span>
                         <input
                             type="checkbox"
-                            checked={filters.showMoored}
+                            checked={showMoored}
                             onChange={(e) => setFilter('showMoored', e.target.checked)}
                             className="accent-[#f59e0b] cursor-pointer"
                         />
@@ -77,33 +85,13 @@ export const MaritimeToolbar: React.FC<MaritimeToolbarProps> = ({
                             type="range"
                             min="0"
                             max="50"
-                            value={filters.speedMin}
+                            value={speedMin}
                             onChange={(e) => setFilter('speedMin', parseInt(e.target.value))}
                             className="w-24 accent-intel-accent"
                         />
-                        <span className="text-[10px] text-intel-accent w-6 tabular-nums text-right">{filters.speedMin}</span>
+                        <span className="text-[10px] text-intel-accent w-6 tabular-nums text-right">{speedMin}</span>
                     </div>
                 </div>
-            </div>
-
-            {/* Right side: Nautical Chart Toggle */}
-            <div className="flex items-center h-full">
-                <button
-                    onClick={handleChart}
-                    title="Toggle OpenSeaMap nautical chart overlay"
-                    className={`flex items-center space-x-2 h-full px-3 border-l border-white/10 text-[10px] uppercase tracking-widest font-bold transition-colors ${showNauticalChart
-                            ? 'text-[#10b981] bg-[#10b981]/10'
-                            : 'text-intel-text/50 hover:text-intel-text hover:bg-white/5'
-                        }`}
-                >
-                    <Map size={12} className={showNauticalChart ? 'text-[#10b981]' : ''} />
-                    <span>CHART</span>
-                    {showNauticalChart && (
-                        <span className="ml-1 px-1 py-px bg-[#10b981]/20 text-[#10b981] text-[9px] border border-[#10b981]/30 leading-tight">
-                            ON
-                        </span>
-                    )}
-                </button>
             </div>
         </div>
     );

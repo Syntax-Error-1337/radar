@@ -3,13 +3,13 @@ import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import { useMaritimeSnapshot } from './hooks/useMaritimeSnapshot';
 import { useVesselSelection } from './hooks/useVesselSelection';
+import { useVesselDetail } from './hooks/useVesselDetail';
 import { useMaritimeStore } from './state/maritime.store';
 import { vesselsToPointGeoJSON, vesselHistoryToLineGeoJSON } from './lib/maritime.geojson';
 import { useThemeStore } from '../../ui/theme/theme.store';
 import { MapLayerControl } from '../flights/components/MapLayerControl';
 import { MaritimeToolbar } from './components/MaritimeToolbar';
 import { MaritimeRightDrawer } from './components/MaritimeRightDrawer';
-import { ZoomIn } from 'lucide-react';
 import { SATELLITE_STYLE, MAP_STYLE_URLS } from '../../lib/mapStyles';
 
 
@@ -34,17 +34,13 @@ const iconsPromise = Promise.all(
     iconsLoaded = true;
 });
 
-// Minimum zoom level for OpenSeaMap seamark tiles to have data
-const CHART_MIN_ZOOM = 8;
 
 export const MaritimePage: React.FC = () => {
     const mapRef = useRef<MapRef>(null);
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
-    const [mapZoom, setMapZoom] = useState(3);
-    // Fine-grained selectors — each field triggers its own re-render slice
+    // Fine-grained selectors
     const mapProjection = useThemeStore(s => s.mapProjection);
     const mapLayer = useThemeStore(s => s.mapLayer);
-    const setMapLayer = useThemeStore(s => s.setMapLayer);
 
     useEffect(() => {
         if (!imagesReady) {
@@ -56,32 +52,14 @@ export const MaritimePage: React.FC = () => {
     const vessels = useMemo(() => data?.vessels || [], [data?.vessels]);
     const timestamp = data?.timestamp || 0;
 
-    const { filters, showNauticalChart, setShowNauticalChart } = useMaritimeStore();
+    const { filters } = useMaritimeStore();
     const { selectedMmsi, setSelectedMmsi, selectedVessel } = useVesselSelection(vessels);
-
-    // When chart is toggled ON: switch to nautical base map and zoom in if needed
-    const handleChartToggle = useCallback((on: boolean) => {
-        setShowNauticalChart(on);
-        if (on) {
-            // Only switch from dark — satellite uses an object style so switching to a URL
-            // string triggers a MapLibre style-diff crash. Seamark overlay looks fine on satellite.
-            if (mapLayer === 'dark') {
-                setMapLayer('nautical');
-            }
-            // Fly in to minimum zoom where chart data exists
-            const map = mapRef.current?.getMap();
-            if (map && map.getZoom() < CHART_MIN_ZOOM) {
-                map.flyTo({ zoom: CHART_MIN_ZOOM, duration: 1500, essential: true });
-            }
-        }
-    }, [mapLayer, setMapLayer, setShowNauticalChart]);
 
     const filteredVessels = useMemo(() => {
         return vessels.filter(v => {
             if (v.sog != null && v.sog < filters.speedMin) return false;
             if (v.sog != null && v.sog > filters.speedMax) return false;
             if (filters.name && v.name && !v.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
-            // Navigational status: 1 or 5 usually means moored
             const isMoored = v.navigationalStatus === 1 || v.navigationalStatus === 5;
             if (!filters.showUnderway && !isMoored) return false;
             if (!filters.showMoored && isMoored) return false;
@@ -94,17 +72,56 @@ export const MaritimePage: React.FC = () => {
             case 'light': return MAP_STYLE_URLS.light;
             case 'street': return MAP_STYLE_URLS.street;
             case 'satellite': return SATELLITE_STYLE;
-            case 'nautical': return MAP_STYLE_URLS.nautical;
             case 'dark':
             default: return MAP_STYLE_URLS.dark;
         }
     }, [mapLayer]);
 
-    // Keep points directly via React state since ship interpolation might not be as critical or 
-    // requires more complex rhumb line extrapolation, for now direct rendering is enough.
-    // AIS updates are often every few seconds/minutes anyway.
-    const pointsGeoJSON = useMemo(() => vesselsToPointGeoJSON(filteredVessels), [filteredVessels]);
-    const historyGeoJSON = useMemo(() => vesselHistoryToLineGeoJSON(selectedVessel), [selectedVessel]);
+    // Fetch full vessel detail (incl. history) when a vessel is selected.
+    // The snapshot endpoint strips history for bandwidth; this on-demand fetch
+    // restores it so the route-history layer and drawer get real data.
+    const { data: vesselDetail } = useVesselDetail(selectedMmsi);
+
+    // Use the detail vessel if available (has history), fall back to snapshot vessel
+    const activeVessel = vesselDetail ?? selectedVessel;
+
+    const onClose = useCallback(() => setSelectedMmsi(null), [setSelectedMmsi]);
+
+    // Ref pattern: interval reads latest filtered vessels without restarting on every refetch.
+    // `dirtyRef` is set true whenever filteredVessels changes so the interval
+    // only rebuilds GeoJSON when there is actually new data — at 2 Hz with 30k
+    // vessels this avoids ~100ms of wasted JS per tick.
+    const filteredVesselsRef = useRef(filteredVessels);
+    const dirtyRef = useRef(true); // start dirty so first paint is immediate
+    useEffect(() => {
+        filteredVesselsRef.current = filteredVessels;
+        dirtyRef.current = true;
+    }, [filteredVessels]);
+
+    const historyGeoJSON = useMemo(
+        () => vesselHistoryToLineGeoJSON(activeVessel ?? null),
+        [activeVessel],
+    );
+
+    // Stable empty FeatureCollection — actual data pushed via setData() below
+    const EMPTY_FC = useRef({ type: 'FeatureCollection' as const, features: [] as never[] }).current;
+
+    // Push vessel GeoJSON directly to MapLibre at 2 Hz — bypasses React renders entirely.
+    // Only rebuilds when dirty (new AIS data arrived); skips the tick otherwise.
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!dirtyRef.current) return; // nothing changed since last push
+            const map = mapRef.current?.getMap();
+            if (!map) return;
+            dirtyRef.current = false;
+            const geojson = vesselsToPointGeoJSON(filteredVesselsRef.current);
+            const pointsSource = map.getSource('points') as import('maplibre-gl').GeoJSONSource;
+            if (pointsSource?.setData) pointsSource.setData(geojson);
+            const haloSource = map.getSource('points-halo') as import('maplibre-gl').GeoJSONSource;
+            if (haloSource?.setData) haloSource.setData(geojson);
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
 
     const onClick = useCallback((e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
         const feature = e.features?.[0];
@@ -117,7 +134,6 @@ export const MaritimePage: React.FC = () => {
 
     const onMapLoad = useCallback((e: { target: import('maplibre-gl').Map }) => {
         const map = e.target;
-        setMapZoom(map.getZoom());
         if (iconsLoaded) {
             Object.entries(PRELOADED_ICONS).forEach(([id, img]) => {
                 if (!map.hasImage(id)) map.addImage(id, img);
@@ -143,95 +159,36 @@ export const MaritimePage: React.FC = () => {
         }
     }, []);
 
-    const onZoom = useCallback((e: { target: import('maplibre-gl').Map }) => {
-        const z = e.target.getZoom();
-        // Only update React state when crossing the threshold — avoids re-renders on every
-        // animation frame during flyTo which would repeatedly trigger the style diff.
-        setMapZoom(prev => {
-            const wasLow = prev < CHART_MIN_ZOOM;
-            const isLow = z < CHART_MIN_ZOOM;
-            return wasLow !== isLow ? z : prev;
-        });
-    }, []);
-
-    const chartZoomTooLow = showNauticalChart && mapZoom < CHART_MIN_ZOOM;
-
     return (
         <div className="absolute inset-0 bg-intel-bg overflow-hidden flex flex-col">
             <MaritimeToolbar
                 totalCount={vessels.length}
                 filteredCount={filteredVessels.length}
-                onChartToggle={handleChartToggle}
             />
             {/* <MaritimeLeftPanel /> */}
-            <MaritimeRightDrawer vessel={selectedVessel} onClose={() => setSelectedMmsi(null)} />
+            <MaritimeRightDrawer vessel={activeVessel ?? null} onClose={onClose} />
             <MapLayerControl />
-
-            {/* Zoom-in hint when chart is on but map is too far out */}
-            {chartZoomTooLow && (
-                <div
-                    className="absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center space-x-2 bg-[#10b981]/15 border border-[#10b981]/40 backdrop-blur-sm px-4 py-2 font-mono text-[11px] text-[#10b981] cursor-pointer hover:bg-[#10b981]/25 transition-colors"
-                    onClick={() => {
-                        const map = mapRef.current?.getMap();
-                        if (map) map.flyTo({ zoom: CHART_MIN_ZOOM, duration: 1200, essential: true });
-                    }}
-                    title="Click to zoom in and reveal nautical chart data"
-                >
-                    <ZoomIn size={13} />
-                    <span className="uppercase tracking-widest font-bold">CHART ACTIVE — ZOOM IN TO SEE DETAIL</span>
-                    <span className="opacity-60 ml-1">▸ Click to zoom</span>
-                </div>
-            )}
 
             <div className="absolute inset-x-0 bottom-8 h-full bg-intel-panel pointer-events-auto z-0" style={{ top: '40px' }}>
                 <Map
                     ref={mapRef}
-                    initialViewState={{
-                        longitude: -30,
-                        latitude: 40,
-                        zoom: 3
-                    }}
+                    initialViewState={{ longitude: -30, latitude: 40, zoom: 3 }}
                     mapStyle={activeMapStyle}
                     styleDiffing={false}
                     interactiveLayerIds={['vessel-points']}
                     onClick={onClick}
-                    cursor={selectedMmsi ? "pointer" : "crosshair"}
+                    cursor={selectedMmsi ? 'pointer' : 'crosshair'}
                     onLoad={onMapLoad}
                     onStyleData={onStyleData}
                     onStyleImageMissing={onStyleImageMissing}
-                    onZoom={onZoom}
                     projection={mapProjection === 'globe' ? { type: 'globe' } as import('maplibre-gl').ProjectionSpecification : { type: 'mercator' } as import('maplibre-gl').ProjectionSpecification}
                     doubleClickZoom={mapProjection !== 'globe'}
                     style={{ width: '100%', height: '100%' }}
                 >
                     <NavigationControl position="top-right" showCompass={true} visualizePitch={true} />
 
-                    {/* === NAUTICAL CHART LAYERS (rendered below vessel layers) === */}
-                    {showNauticalChart && (
-                        <>
-                            <Source
-                                id="openseamap"
-                                type="raster"
-                                tiles={['https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png']}
-                                tileSize={256}
-                                minzoom={1}
-                                maxzoom={18}
-                                attribution="© <a href='https://www.openseamap.org' target='_blank'>OpenSeaMap</a> contributors"
-                            >
-                                <Layer
-                                    id="openseamap-layer"
-                                    type="raster"
-                                    paint={{
-                                        'raster-opacity': 0.9,
-                                        'raster-fade-duration': 300,
-                                    }}
-                                />
-                            </Source>
-                        </>
-                    )}
-
-                    {/* Historical Route Line */}
-                    {selectedVessel && selectedVessel.history && selectedVessel.history.length > 1 && (
+                    {/* Historical Route Line — drawn from full vessel detail (includes history array) */}
+                    {activeVessel && activeVessel.history && activeVessel.history.length > 1 && (
                         <Source id="vessel-history" type="geojson" data={historyGeoJSON}>
                             <Layer
                                 id="vessel-history-line"
@@ -240,14 +197,14 @@ export const MaritimePage: React.FC = () => {
                                     'line-color': '#10b981',
                                     'line-width': 2,
                                     'line-opacity': 0.6,
-                                    'line-dasharray': [2, 2]
+                                    'line-dasharray': [2, 2],
                                 }}
                             />
                         </Source>
                     )}
 
-                    {/* Blue halo circle underneath for selected vessel */}
-                    <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
+                    {/* Blue halo for selected vessel */}
+                    <Source id="points-halo" type="geojson" data={EMPTY_FC}>
                         <Layer
                             id="vessel-points-halo"
                             type="circle"
@@ -255,13 +212,13 @@ export const MaritimePage: React.FC = () => {
                                 'circle-radius': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 12, 0],
                                 'circle-color': 'transparent',
                                 'circle-stroke-width': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 2, 0],
-                                'circle-stroke-color': '#3b82f6'
+                                'circle-stroke-color': '#3b82f6',
                             }}
                         />
                     </Source>
 
                     {imagesReady && (
-                        <Source id="points" type="geojson" data={pointsGeoJSON}>
+                        <Source id="points" type="geojson" data={EMPTY_FC}>
                             <Layer
                                 id="vessel-points"
                                 type="symbol"
@@ -270,10 +227,9 @@ export const MaritimePage: React.FC = () => {
                                         'case',
                                         ['==', ['get', 'mmsi'], selectedMmsi || 0], 'ship-white',
                                         ['in', ['get', 'navigationalStatus'], ['literal', [1, 5]]], 'ship-orange',
-                                        'ship-green'
+                                        'ship-green',
                                     ],
                                     'icon-size': 0.7,
-                                    // Ship heading or COG, default 0
                                     'icon-rotate': ['coalesce', ['get', 'heading'], ['get', 'cog'], 0],
                                     'icon-rotation-alignment': 'map',
                                     'icon-allow-overlap': true,

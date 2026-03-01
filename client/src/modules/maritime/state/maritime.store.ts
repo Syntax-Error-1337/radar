@@ -13,10 +13,6 @@ interface MaritimeState {
     setFilter: <K extends keyof MaritimeFilters>(key: K, value: MaritimeFilters[K]) => void;
     selectedMmsi: number | null;
     setSelectedMmsi: (mmsi: number | null) => void;
-    cameraTrackMode: boolean;
-    setCameraTrackMode: (track: boolean) => void;
-    showNauticalChart: boolean;
-    setShowNauticalChart: (show: boolean) => void;
 }
 
 export const useMaritimeStore = create<MaritimeState>((set) => ({
@@ -30,8 +26,4 @@ export const useMaritimeStore = create<MaritimeState>((set) => ({
     setFilter: (key, value) => set((state) => ({ filters: { ...state.filters, [key]: value } })),
     selectedMmsi: null,
     setSelectedMmsi: (mmsi) => set({ selectedMmsi: mmsi }),
-    cameraTrackMode: false,
-    setCameraTrackMode: (track) => set({ cameraTrackMode: track }),
-    showNauticalChart: false,
-    setShowNauticalChart: (show) => set({ showNauticalChart: show }),
 }));
