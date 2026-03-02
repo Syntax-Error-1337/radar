@@ -9,6 +9,9 @@ const FlightsPage = lazy(() =>
 const MaritimePage = lazy(() =>
     import('../modules/maritime/MaritimePage').then(m => ({ default: m.MaritimePage }))
 );
+const MonitorPage = lazy(() =>
+    import('../modules/monitor/MonitorPage').then(m => ({ default: m.MonitorPage }))
+);
 
 /** Minimal fallback shown while the chunk is loading (<200 ms on fast connections). */
 const PageLoader: React.FC = () => (
@@ -24,7 +27,10 @@ export const AppRoutes: React.FC = () => {
 
     return (
         <Suspense fallback={<PageLoader />}>
-            {activeModule === 'maritime' ? <MaritimePage /> : <FlightsPage />}
+            {activeModule === 'monitor'
+                ? <MonitorPage />
+                : (activeModule === 'maritime' ? <MaritimePage /> : <FlightsPage />)
+            }
         </Suspense>
     );
 };
