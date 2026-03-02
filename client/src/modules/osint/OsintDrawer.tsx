@@ -43,7 +43,7 @@ export const OsintDrawer: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm no-scrollbar">
                 <div className="text-intel-text/60 text-xs mb-4 uppercase tracking-widest">
-                    TARGETING SECTOR: {currentRegionLat.toFixed(2)}, {currentRegionLon.toFixed(2)}
+                    TARGETING SECTOR: {data?.news?.length ? data.news[0]?.source || 'INTERNATIONAL' : 'INTERNATIONAL'} ({currentRegionLat.toFixed(2)}, {currentRegionLon.toFixed(2)})
                 </div>
 
                 {isLoading && (

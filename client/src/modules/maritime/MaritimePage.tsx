@@ -42,7 +42,7 @@ export const MaritimePage: React.FC = () => {
     // Fine-grained selectors
     const mapProjection = useThemeStore(s => s.mapProjection);
     const mapLayer = useThemeStore(s => s.mapLayer);
-    const setCurrentRegion = useOsintStore(s => s.setCurrentRegion);
+    const osintDrawerOpen = useOsintStore(s => s.osintDrawerOpen);
 
     useEffect(() => {
         if (!imagesReady) {
@@ -112,7 +112,8 @@ export const MaritimePage: React.FC = () => {
     // Only rebuilds when dirty (new AIS data arrived); skips the tick otherwise.
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!dirtyRef.current) return; // nothing changed since last push
+            const { osintDrawerOpen } = useOsintStore.getState();
+            if (!dirtyRef.current || osintDrawerOpen) return; // nothing changed since last push, or OSINT is open
             const map = mapRef.current?.getMap();
             if (!map) return;
             dirtyRef.current = false;
@@ -131,6 +132,12 @@ export const MaritimePage: React.FC = () => {
             setSelectedMmsi(feature.properties.mmsi);
         } else {
             setSelectedMmsi(null);
+
+            // Set OSINT region on click
+            const { osintDrawerOpen, setCurrentRegion } = useOsintStore.getState();
+            if (osintDrawerOpen) {
+                setCurrentRegion(e.lngLat.lat, e.lngLat.lng);
+            }
         }
     }, [setSelectedMmsi]);
 
@@ -143,10 +150,9 @@ export const MaritimePage: React.FC = () => {
         }
     }, []);
 
-    const onMoveEnd = useCallback((e: { target: import('maplibre-gl').Map }) => {
-        const center = e.target.getCenter();
-        setCurrentRegion(center.lat, center.lng);
-    }, [setCurrentRegion]);
+    const onMoveEnd = useCallback(() => {
+        // Disabled mapping center to OSINT automatically
+    }, []);
 
     const onStyleImageMissing = useCallback((e: { id: string; target: import('maplibre-gl').Map }) => {
         const id = e.id;
@@ -182,7 +188,7 @@ export const MaritimePage: React.FC = () => {
                     initialViewState={{ longitude: -30, latitude: 40, zoom: 3 }}
                     mapStyle={activeMapStyle}
                     styleDiffing={false}
-                    interactiveLayerIds={['vessel-points']}
+                    interactiveLayerIds={osintDrawerOpen ? [] : ['vessel-points']}
                     onClick={onClick}
                     onMoveEnd={onMoveEnd}
                     cursor={selectedMmsi ? 'pointer' : 'crosshair'}
@@ -195,55 +201,59 @@ export const MaritimePage: React.FC = () => {
                 >
                     <NavigationControl position="top-right" showCompass={true} visualizePitch={true} />
 
-                    {/* Historical Route Line — drawn from full vessel detail (includes history array) */}
-                    {activeVessel && activeVessel.history && activeVessel.history.length > 1 && (
-                        <Source id="vessel-history" type="geojson" data={historyGeoJSON}>
-                            <Layer
-                                id="vessel-history-line"
-                                type="line"
-                                paint={{
-                                    'line-color': '#10b981',
-                                    'line-width': 2,
-                                    'line-opacity': 0.6,
-                                    'line-dasharray': [2, 2],
-                                }}
-                            />
-                        </Source>
-                    )}
+                    {!osintDrawerOpen && (
+                        <>
+                            {/* Historical Route Line — drawn from full vessel detail (includes history array) */}
+                            {activeVessel && activeVessel.history && activeVessel.history.length > 1 && (
+                                <Source id="vessel-history" type="geojson" data={historyGeoJSON}>
+                                    <Layer
+                                        id="vessel-history-line"
+                                        type="line"
+                                        paint={{
+                                            'line-color': '#10b981',
+                                            'line-width': 2,
+                                            'line-opacity': 0.6,
+                                            'line-dasharray': [2, 2],
+                                        }}
+                                    />
+                                </Source>
+                            )}
 
-                    {/* Blue halo for selected vessel */}
-                    <Source id="points-halo" type="geojson" data={EMPTY_FC}>
-                        <Layer
-                            id="vessel-points-halo"
-                            type="circle"
-                            paint={{
-                                'circle-radius': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 12, 0],
-                                'circle-color': 'transparent',
-                                'circle-stroke-width': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 2, 0],
-                                'circle-stroke-color': '#3b82f6',
-                            }}
-                        />
-                    </Source>
+                            {/* Blue halo for selected vessel */}
+                            <Source id="points-halo" type="geojson" data={EMPTY_FC}>
+                                <Layer
+                                    id="vessel-points-halo"
+                                    type="circle"
+                                    paint={{
+                                        'circle-radius': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 12, 0],
+                                        'circle-color': 'transparent',
+                                        'circle-stroke-width': ['case', ['==', ['get', 'mmsi'], selectedMmsi || 0], 2, 0],
+                                        'circle-stroke-color': '#3b82f6',
+                                    }}
+                                />
+                            </Source>
 
-                    {imagesReady && (
-                        <Source id="points" type="geojson" data={EMPTY_FC}>
-                            <Layer
-                                id="vessel-points"
-                                type="symbol"
-                                layout={{
-                                    'icon-image': [
-                                        'case',
-                                        ['==', ['get', 'mmsi'], selectedMmsi || 0], 'ship-white',
-                                        ['in', ['get', 'navigationalStatus'], ['literal', [1, 5]]], 'ship-orange',
-                                        'ship-green',
-                                    ],
-                                    'icon-size': 0.7,
-                                    'icon-rotate': ['coalesce', ['get', 'heading'], ['get', 'cog'], 0],
-                                    'icon-rotation-alignment': 'map',
-                                    'icon-allow-overlap': true,
-                                }}
-                            />
-                        </Source>
+                            {imagesReady && (
+                                <Source id="points" type="geojson" data={EMPTY_FC}>
+                                    <Layer
+                                        id="vessel-points"
+                                        type="symbol"
+                                        layout={{
+                                            'icon-image': [
+                                                'case',
+                                                ['==', ['get', 'mmsi'], selectedMmsi || 0], 'ship-white',
+                                                ['in', ['get', 'navigationalStatus'], ['literal', [1, 5]]], 'ship-orange',
+                                                'ship-green',
+                                            ],
+                                            'icon-size': 0.7,
+                                            'icon-rotate': ['coalesce', ['get', 'heading'], ['get', 'cog'], 0],
+                                            'icon-rotation-alignment': 'map',
+                                            'icon-allow-overlap': true,
+                                        }}
+                                    />
+                                </Source>
+                            )}
+                        </>
                     )}
 
                 </Map>

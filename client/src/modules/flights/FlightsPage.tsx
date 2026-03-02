@@ -78,9 +78,9 @@ export const FlightsPage: React.FC = () => {
     const [imagesReady, setImagesReady] = useState(iconsLoaded);
     const { mapProjection, mapLayer } = useThemeStore();
     const onboardMode = useFlightsStore(s => s.onboardMode);
+    const osintDrawerOpen = useOsintStore(s => s.osintDrawerOpen);
     // Screen pixel position of the aircraft icon (for HTML overlay)
     const [iconScreenPos, setIconScreenPos] = useState<{ x: number, y: number } | null>(null);
-    const setCurrentRegion = useOsintStore(s => s.setCurrentRegion);
 
     useEffect(() => {
         if (!imagesReady) {
@@ -171,6 +171,12 @@ export const FlightsPage: React.FC = () => {
             setSelectedIcao24(feature.properties.icao24);
         } else {
             setSelectedIcao24(null);
+
+            // Set OSINT region on click
+            const { osintDrawerOpen, setCurrentRegion } = useOsintStore.getState();
+            if (osintDrawerOpen) {
+                setCurrentRegion(e.lngLat.lat, e.lngLat.lng);
+            }
         }
     }, [setSelectedIcao24]);
 
@@ -207,10 +213,9 @@ export const FlightsPage: React.FC = () => {
         }
     }, []);
 
-    const onMoveEnd = useCallback((e: { target: import('maplibre-gl').Map }) => {
-        const center = e.target.getCenter();
-        setCurrentRegion(center.lat, center.lng);
-    }, [setCurrentRegion]);
+    const onMoveEnd = useCallback(() => {
+        // Disabled mapping center to OSINT automatically
+    }, []);
 
     const onStyleData = useCallback((e: { dataType: string; target: import('maplibre-gl').Map }) => {
         // Only act on full style reloads, not on individual tile/source load events.
@@ -240,7 +245,10 @@ export const FlightsPage: React.FC = () => {
 
         const animate = (time: number) => {
             const map = mapRef.current?.getMap();
-            if (map && filteredStates.length > 0) {
+            const { osintDrawerOpen } = useOsintStore.getState();
+
+            // Pause the entire computation and rendering pipeline if OSINT is open.
+            if (map && filteredStates.length > 0 && !osintDrawerOpen) {
                 const zoom = map.getZoom();
 
                 // Adaptive FPS based on zoom level:
@@ -364,7 +372,7 @@ export const FlightsPage: React.FC = () => {
                     }}
                     mapStyle={activeMapStyle}
                     styleDiffing={false}
-                    interactiveLayerIds={['aircraft-points']}
+                    interactiveLayerIds={osintDrawerOpen ? [] : ['aircraft-points']}
                     onClick={onClick}
                     onMoveStart={onMoveStart}
                     onMoveEnd={onMoveEnd}
@@ -382,71 +390,75 @@ export const FlightsPage: React.FC = () => {
                         visualizePitch={true}
                     />
 
-                    <Source id="tracks" type="geojson" data={{ type: 'FeatureCollection', features: [] }}>
-                        {/* Dim track for unselected aircraft */}
-                        <Layer
-                            id="aircraft-tracks"
-                            type="line"
-                            paint={{
-                                'line-color': '#3b82f6',
-                                'line-width': 1,
-                                'line-opacity': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 0, 0.15]
-                            }}
-                        />
-                    </Source>
+                    {!osintDrawerOpen && (
+                        <>
+                            <Source id="tracks" type="geojson" data={{ type: 'FeatureCollection', features: [] }}>
+                                {/* Dim track for unselected aircraft */}
+                                <Layer
+                                    id="aircraft-tracks"
+                                    type="line"
+                                    paint={{
+                                        'line-color': '#3b82f6',
+                                        'line-width': 1,
+                                        'line-opacity': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 0, 0.15]
+                                    }}
+                                />
+                            </Source>
 
-                    <Source id="historical-tracks" type="geojson" data={historicalGeoJSON} lineMetrics={true}>
-                        <Layer
-                            id="aircraft-tracks-selected"
-                            type="line"
-                            paint={{
-                                'line-width': 3,
-                                'line-gradient': [
-                                    'interpolate',
-                                    ['linear'],
-                                    ['line-progress'],
-                                    0, 'rgba(192, 38, 211, 0)',   // Transparent magenta at oldest point
-                                    1, 'rgba(192, 38, 211, 1)'    // Solid magenta at front of aircraft
-                                ]
-                            }}
-                        />
-                    </Source>
+                            <Source id="historical-tracks" type="geojson" data={historicalGeoJSON} lineMetrics={true}>
+                                <Layer
+                                    id="aircraft-tracks-selected"
+                                    type="line"
+                                    paint={{
+                                        'line-width': 3,
+                                        'line-gradient': [
+                                            'interpolate',
+                                            ['linear'],
+                                            ['line-progress'],
+                                            0, 'rgba(192, 38, 211, 0)',   // Transparent magenta at oldest point
+                                            1, 'rgba(192, 38, 211, 1)'    // Solid magenta at front of aircraft
+                                        ]
+                                    }}
+                                />
+                            </Source>
 
-                    {/* Blue halo circle underneath for selected aircraft */}
-                    {!onboardMode && (
-                        <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
-                            <Layer
-                                id="aircraft-points-halo"
-                                type="circle"
-                                paint={{
-                                    'circle-radius': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 10, 0],
-                                    'circle-color': 'transparent',
-                                    'circle-stroke-width': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 2, 0],
-                                    'circle-stroke-color': '#3b82f6'
-                                }}
-                            />
-                        </Source>
-                    )}
+                            {/* Blue halo circle underneath for selected aircraft */}
+                            {!onboardMode && (
+                                <Source id="points-halo" type="geojson" data={pointsGeoJSON}>
+                                    <Layer
+                                        id="aircraft-points-halo"
+                                        type="circle"
+                                        paint={{
+                                            'circle-radius': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 10, 0],
+                                            'circle-color': 'transparent',
+                                            'circle-stroke-width': ['case', ['==', ['get', 'icao24'], selectedIcao24 || ''], 2, 0],
+                                            'circle-stroke-color': '#3b82f6'
+                                        }}
+                                    />
+                                </Source>
+                            )}
 
-                    {/* 2D Icons */}
-                    {imagesReady && !onboardMode && (
-                        <Source id="points" type="geojson" data={pointsGeoJSON}>
-                            <Layer
-                                id="aircraft-points"
-                                type="symbol"
-                                layout={{
-                                    'icon-image': [
-                                        'case',
-                                        ['==', ['get', 'icao24'], selectedIcao24 || ''], 'aircraft-white',
-                                        ['boolean', ['get', 'onGround'], false], 'aircraft-orange',
-                                        'aircraft-green'
-                                    ],
-                                    'icon-size': 0.8,
-                                    'icon-rotate': ['-', ['get', 'heading'], 45],
-                                    'icon-allow-overlap': true,
-                                }}
-                            />
-                        </Source>
+                            {/* 2D Icons */}
+                            {imagesReady && !onboardMode && (
+                                <Source id="points" type="geojson" data={pointsGeoJSON}>
+                                    <Layer
+                                        id="aircraft-points"
+                                        type="symbol"
+                                        layout={{
+                                            'icon-image': [
+                                                'case',
+                                                ['==', ['get', 'icao24'], selectedIcao24 || ''], 'aircraft-white',
+                                                ['boolean', ['get', 'onGround'], false], 'aircraft-orange',
+                                                'aircraft-green'
+                                            ],
+                                            'icon-size': 0.8,
+                                            'icon-rotate': ['-', ['get', 'heading'], 45],
+                                            'icon-allow-overlap': true,
+                                        }}
+                                    />
+                                </Source>
+                            )}
+                        </>
                     )}
 
                 </Map>
