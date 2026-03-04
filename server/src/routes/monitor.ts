@@ -1,6 +1,10 @@
 import { Router } from 'express';
+// We import flight data sources here because the StrategicPosturePanel 
+// (via the GET /api/monitor/posture endpoint) tracks military aircraft 
+// (e.g., bombers, tankers, AWACS) to assess military alert levels globally.
 import { fetchStates as fetchOpenSkyStates } from '../core/source/opensky';
 import { fetchStates as fetchAdsbLolStates } from '../core/source/adsblol';
+import { fetchAcledCached, AcledRawEvent } from '../core/source/acled';
 import { aircraftDb } from '../core/aircraft_db';
 
 const router = Router();
@@ -295,6 +299,54 @@ router.get('/posture', async (req, res) => {
     } catch (e: any) {
         console.error('Posture Error:', e.message);
         res.json({ theaters: [] });
+    }
+});
+
+router.get('/acled', async (req, res) => {
+    try {
+        const nowMs = Date.now();
+        const startMs = nowMs - 7 * 24 * 60 * 60 * 1000; // Last 7 days by default
+
+        const end = typeof req.query.end === 'string' ? parseInt(req.query.end, 10) : nowMs;
+        const start = typeof req.query.start === 'string' ? parseInt(req.query.start, 10) : startMs;
+        const country = typeof req.query.country === 'string' ? req.query.country : undefined;
+
+        const startDate = new Date(start).toISOString().split('T')[0];
+        const endDate = new Date(end).toISOString().split('T')[0];
+
+        const rawEvents = await fetchAcledCached({
+            eventTypes: 'Battles|Explosions/Remote violence|Violence against civilians',
+            startDate,
+            endDate,
+            country,
+            limit: 500
+        });
+
+        const events = rawEvents
+            .filter((e: AcledRawEvent) => {
+                const lat = parseFloat(e.latitude || '');
+                const lon = parseFloat(e.longitude || '');
+                return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+            })
+            .map((e: AcledRawEvent) => ({
+                id: `acled-${e.event_id_cnty}`,
+                eventType: e.event_type || '',
+                country: e.country || '',
+                location: {
+                    latitude: parseFloat(e.latitude || '0'),
+                    longitude: parseFloat(e.longitude || '0'),
+                },
+                occurredAt: new Date(e.event_date || '').getTime(),
+                fatalities: parseInt(e.fatalities || '', 10) || 0,
+                actors: [e.actor1, e.actor2].filter(Boolean) as string[],
+                source: e.source || '',
+                admin1: e.admin1 || '',
+            }));
+
+        res.json({ events });
+    } catch (e: any) {
+        console.error('ACLED Route Error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch ACLED data', events: [] });
     }
 });
 
