@@ -1,9 +1,12 @@
 # Multi-stage build for INTELMAP
 
 # Stage 1: Build everything (using monorepo structure)
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+# Install build dependencies for native modules (like DuckDB)
+RUN apk add --no-cache python3 make g++
 
 # Copy root package files and workspace configs
 COPY package*.json ./
@@ -24,16 +27,17 @@ RUN npm run build:client
 RUN npm run build:server
 
 # Stage 2: Production image
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy root package files
+# Copy package files for structure
 COPY package*.json ./
 COPY server/package*.json ./server/
 
-# Install production dependencies only for server
-RUN npm install --omit=dev --workspace=server
+# Copy node_modules from builder (includes compiled DuckDB)
+# This avoids rebuilding native modules in production
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built server from builder
 COPY --from=builder /app/server/dist ./dist
