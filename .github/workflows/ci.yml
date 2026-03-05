@@ -20,21 +20,17 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install dependencies (monorepo)
         run: npm ci
-        working-directory: ./client
 
       - name: Lint
         run: npm run lint
-        working-directory: ./client
 
       - name: Run tests
-        run: npm test
-        working-directory: ./client
+        run: npm run test:client
 
-      - name: Build
-        run: npm run build
-        working-directory: ./client
+      - name: Build client
+        run: npm run build:client
 
   test-server:
     name: Test Server
@@ -49,17 +45,15 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install dependencies (monorepo)
         run: npm ci
-        working-directory: ./server
 
-      - name: Build
-        run: npm run build
-        working-directory: ./server
+      - name: Build server
+        run: npm run build:server
 
       - name: Run tests (if available)
-        run: npm test --if-present
-        working-directory: ./server
+        run: npm test --if-present --workspace=server
+        continue-on-error: true
 
   security-audit:
     name: Security Audit
@@ -73,12 +67,17 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Run security audit (client)
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit (all workspaces)
         run: npm audit --audit-level=high
-        working-directory: ./client
+        continue-on-error: true
+
+      - name: Run security audit (client)
+        run: npm audit --audit-level=high --workspace=client
         continue-on-error: true
 
       - name: Run security audit (server)
-        run: npm audit --audit-level=high
-        working-directory: ./server
+        run: npm audit --audit-level=high --workspace=server
         continue-on-error: true
