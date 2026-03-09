@@ -8,6 +8,19 @@ const router = Router();
 // would easily exceed 100 MB of JSON per 5-second poll.
 const SNAPSHOT_VESSEL_LIMIT = 30_000;
 
+router.get('/status', (req, res) => {
+  res.json({
+    isConnected: aisStreamService.isConnected,
+    readyState: aisStreamService.readyState,
+    vesselCount: aisStreamService.vessels.size,
+    totalMessagesReceived: aisStreamService.totalMessagesReceived,
+    lastMessageReceived: aisStreamService.lastMessageReceived,
+    secondsSinceLastMessage: aisStreamService.lastMessageReceived
+      ? Math.floor((Date.now() - aisStreamService.lastMessageReceived) / 1000)
+      : null,
+  });
+});
+
 router.get('/snapshot', (req, res) => {
   const allVessels = aisStreamService.vessels;
   let vessels = Array.from(allVessels.values());
