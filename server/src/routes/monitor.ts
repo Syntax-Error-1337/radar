@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as gpsjam from '../core/source/gpsjam';
+import * as rocketalert from '../core/source/rocketalert';
 
 const router = Router();
 
@@ -138,6 +139,81 @@ router.post('/gps-jamming/backfill', async (req, res) => {
       error: 'Failed to backfill datasets',
       message: error.message,
     });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rocket Alert routes  (source: agg.rocketalert.live)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/monitor/rocket-alerts
+ * Dashboard summary: live burst + 24 h total + 7-day daily counts.
+ *
+ * Response: AlertSummary
+ * {
+ *   isActive:    boolean,          // true when real-time bursts are non-empty
+ *   live:        RocketAlertItem[] // all alerts from current cached burst
+ *   total24h:    number,           // total alerts last 24 h (all types)
+ *   daily:       { timeStamp: string, alerts: number }[]  // last 7 days
+ *   activeAreas: string[]          // unique area names in live burst
+ * }
+ */
+router.get('/rocket-alerts', async (req, res) => {
+  try {
+    const summary = await rocketalert.getAlertSummary();
+    res.json(summary);
+  } catch (error: any) {
+    console.error('[API] Rocket alerts summary error:', error);
+    res.status(500).json({ error: 'Failed to fetch rocket alert summary', message: error.message });
+  }
+});
+
+/**
+ * GET /api/monitor/rocket-alerts/history
+ * Detailed per-alert records for a custom time window.
+ *
+ * Query parameters:
+ *   hours       – hours back from now (default: 24, max: 720)
+ *   alertTypeId – 1=rockets, 2=UAV, -1=all (default: -1)
+ *
+ * Response:
+ * { days: [{ date: string, alerts: RocketAlertItem[] }] }
+ */
+router.get('/rocket-alerts/history', async (req, res) => {
+  try {
+    const hours = Math.min(720, Math.max(1, parseInt(String(req.query.hours ?? '24'), 10) || 24));
+    const alertTypeId = parseInt(String(req.query.alertTypeId ?? '-1'), 10) || -1;
+
+    const days = await rocketalert.fetchRecentAlertDetails(hours, alertTypeId);
+    res.json({ days });
+  } catch (error: any) {
+    console.error('[API] Rocket alerts history error:', error);
+    res.status(500).json({ error: 'Failed to fetch rocket alert history', message: error.message });
+  }
+});
+
+/**
+ * GET /api/monitor/rocket-alerts/daily
+ * Per-day alert counts.
+ *
+ * Query parameters:
+ *   days        – how many days back (default: 7, max: 90)
+ *   alertTypeId – 1=rockets, 2=UAV, -1=all (default: -1)
+ *
+ * Response:
+ * { counts: [{ timeStamp: string, alerts: number }] }
+ */
+router.get('/rocket-alerts/daily', async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(String(req.query.days ?? '7'), 10) || 7));
+    const alertTypeId = parseInt(String(req.query.alertTypeId ?? '-1'), 10) || -1;
+
+    const counts = await rocketalert.fetchDailyCounts(days, alertTypeId);
+    res.json({ counts });
+  } catch (error: any) {
+    console.error('[API] Rocket alerts daily error:', error);
+    res.status(500).json({ error: 'Failed to fetch daily counts', message: error.message });
   }
 });
 

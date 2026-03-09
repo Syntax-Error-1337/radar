@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MonitorMap } from './components/MonitorMap';
 import { GPSJammingWidget } from './components/widgets/GPSJammingWidget';
+import { RocketAlertWidget } from './components/widgets/RocketAlertWidget';
 import { useOsintStore } from '../osint/osint.store';
 import { useOsintNews } from '../osint/hooks/useOsintNews';
 import { useIntelBrief } from '../osint/hooks/useIntelBrief';
@@ -169,6 +170,11 @@ export const MonitorPage: React.FC = () => {
             <GPSJammingWidget />
           </div>
 
+          {/* ══ Rocket Alerts — col 2 ══ */}
+          <div className="col-span-2 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-red-500/25 transition-colors">
+            <RocketAlertWidget />
+          </div>
+
           {/* ══ AI Synthesis — col 4 ══ */}
           <div className="col-span-4 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-purple-500/25 transition-colors">
             {/* Header */}
@@ -310,8 +316,8 @@ export const MonitorPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ══ Live Intel Feed — col 5 ══ */}
-          <div className="col-span-5 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-intel-accent/20 transition-colors">
+          {/* ══ Live Intel Feed — col 3 ══ */}
+          <div className="col-span-3 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-intel-accent/20 transition-colors">
             {/* Header */}
             <div className="flex items-center justify-between shrink-0 pb-2 border-b border-white/8">
               <div className="flex items-center gap-1.5">
