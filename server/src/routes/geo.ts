@@ -13,7 +13,7 @@ iso.registerLocale(enLocale);
 // Load the massive JSON index once at startup
 let newsFeeds: Record<string, any> = {};
 try {
-  const feedsPath = path.join(__dirname, '..', 'news_feeds.json');
+  const feedsPath = path.join(__dirname, '..', '..', 'news_feeds.json');
   if (fs.existsSync(feedsPath)) {
     newsFeeds = JSON.parse(fs.readFileSync(feedsPath, 'utf8'));
     console.log(

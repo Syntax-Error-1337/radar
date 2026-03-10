@@ -8,23 +8,6 @@ services:
     container_name: radar
     ports:
       - "3001:3001"
-    environment:
-      # Flight Data
-      - FLIGHT_DATA_SOURCE=${FLIGHT_DATA_SOURCE:-adsblol}
-      - ADSB_LOL_LAT=${ADSB_LOL_LAT:-0}
-      - ADSB_LOL_LON=${ADSB_LOL_LON:-0}
-      - ADSB_LOL_RADIUS=${ADSB_LOL_RADIUS:-25000}
-
-      # Maritime Data
-      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY}
-
-      # OSINT / LLM
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-
-      # Cloudflare Radar
-      - CLOUDFLARE_RADAR_TOKEN=${CLOUDFLARE_RADAR_TOKEN}
-
-    # Mount .env file (alternative to environment variables)
     env_file:
       - ./server/.env
 
