@@ -23,7 +23,7 @@ app.use('/api/cyber', cyberRouter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log(`Server intel-proxy listening on port ${PORT}`);
 
   // Load the massive aircraft database in the background
@@ -42,3 +42,11 @@ app.listen(PORT, async () => {
     console.error('Failed to initialize scheduler:', e);
   }
 });
+
+// Graceful shutdown — nodemon sends SIGUSR2, Docker/systemd send SIGTERM
+function shutdown() {
+  server.close(() => process.exit(0));
+}
+process.once('SIGUSR2', shutdown); // nodemon restart
+process.once('SIGTERM', shutdown); // container stop
+process.once('SIGINT', shutdown); // Ctrl-C

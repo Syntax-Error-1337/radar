@@ -23,10 +23,13 @@ export function GulfWatchLayer() {
 
   // Polygon features — for fill + outline + label
   const enrichedGeojson = useMemo(() => {
-    if (!geojson || !alerts) return null;
+    if (!geojson) return null;
 
-    const activeIds = new Set(alerts.activeEmirateIds);
-    const alertsByEmirate = new Map(alerts.alerts.map((a) => [a.emirateId, a]));
+    // Safe fallback when alerts haven't loaded yet — render all emirates as "clear"
+    const activeIds = alerts ? new Set(alerts.activeEmirateIds) : new Set<string>();
+    const alertsByEmirate = alerts
+      ? new Map(alerts.alerts.map((a) => [a.emirateId, a]))
+      : new Map<string, never>();
 
     const features = (geojson as GeoJSON.FeatureCollection).features.map((f) => {
       const emirateId = (f.properties as Record<string, string>).id;
@@ -81,67 +84,68 @@ export function GulfWatchLayer() {
           },
         };
       })
-      .filter(Boolean);
+      .filter((f): f is NonNullable<typeof f> => f !== null);
 
     return { type: 'FeatureCollection' as const, features };
   }, [alerts]);
 
-  if (!alerts?.isActive) return null;
+  // Only skip rendering if the GeoJSON boundary data hasn't loaded at all
+  if (!enrichedGeojson) return null;
 
   return (
     <>
-      {/* ── Polygon layer ── */}
-      {enrichedGeojson && (
-        <Source id="gulf-watch" type="geojson" data={enrichedGeojson as GeoJSON.FeatureCollection}>
-          <Layer
-            id="gulf-watch-fill"
-            type="fill"
-            paint={{
-              'fill-color': [
-                'case',
-                ['==', ['get', 'alertSeverity'], 'warning'],
-                'rgba(239, 68, 68, 0.18)',
-                ['==', ['get', 'alertSeverity'], 'watch'],
-                'rgba(251, 146, 60, 0.15)',
-                'rgba(0, 0, 0, 0)',
-              ],
-              'fill-opacity': ['case', ['get', 'isActive'], 1, 0],
-            }}
-          />
-          <Layer
-            id="gulf-watch-outline"
-            type="line"
-            paint={{
-              'line-color': [
-                'case',
-                ['==', ['get', 'alertSeverity'], 'warning'],
-                'rgba(239, 68, 68, 0.75)',
-                ['==', ['get', 'alertSeverity'], 'watch'],
-                'rgba(251, 146, 60, 0.7)',
-                'rgba(255, 255, 255, 0.05)',
-              ],
-              'line-width': ['case', ['get', 'isActive'], 1.5, 0.3],
-              'line-opacity': ['case', ['get', 'isActive'], 1, 0.15],
-            }}
-          />
-          <Layer
-            id="gulf-watch-label"
-            type="symbol"
-            filter={['==', ['get', 'isActive'], true]}
-            layout={{
-              'text-field': ['get', 'name_en'],
-              'text-font': ['Noto Sans Regular'],
-              'text-size': 10,
-              'text-anchor': 'center',
-            }}
-            paint={{
-              'text-color': 'rgba(255, 200, 180, 0.9)',
-              'text-halo-color': 'rgba(0, 0, 0, 0.8)',
-              'text-halo-width': 1.5,
-            }}
-          />
-        </Source>
-      )}
+      {/* ── Polygon layer ── always visible; "clear" (blue-grey) when no alert ── */}
+      <Source id="gulf-watch" type="geojson" data={enrichedGeojson as GeoJSON.FeatureCollection}>
+        <Layer
+          id="gulf-watch-fill"
+          type="fill"
+          paint={{
+            'fill-color': [
+              'case',
+              ['==', ['get', 'alertSeverity'], 'warning'],
+              'rgba(239, 68, 68, 0.18)',
+              ['==', ['get', 'alertSeverity'], 'watch'],
+              'rgba(251, 146, 60, 0.15)',
+              ['==', ['get', 'alertSeverity'], 'advisory'],
+              'rgba(234, 179, 8, 0.12)',
+              'rgba(96, 165, 250, 0.06)', // clear state
+            ],
+          }}
+        />
+        <Layer
+          id="gulf-watch-outline"
+          type="line"
+          paint={{
+            'line-color': [
+              'case',
+              ['==', ['get', 'alertSeverity'], 'warning'],
+              'rgba(239, 68, 68, 0.75)',
+              ['==', ['get', 'alertSeverity'], 'watch'],
+              'rgba(251, 146, 60, 0.7)',
+              ['==', ['get', 'alertSeverity'], 'advisory'],
+              'rgba(234, 179, 8, 0.6)',
+              'rgba(148, 163, 184, 0.25)', // clear state
+            ],
+            'line-width': ['case', ['get', 'isActive'], 1.5, 0.5],
+          }}
+        />
+        <Layer
+          id="gulf-watch-label"
+          type="symbol"
+          filter={['==', ['get', 'isActive'], true]}
+          layout={{
+            'text-field': ['get', 'name_en'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 10,
+            'text-anchor': 'center',
+          }}
+          paint={{
+            'text-color': 'rgba(255, 200, 180, 0.9)',
+            'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+            'text-halo-width': 1.5,
+          }}
+        />
+      </Source>
 
       {/* ── Marker layer — one dot per active emirate ── */}
       <Source id="gulf-watch-markers" type="geojson" data={markersGeojson}>

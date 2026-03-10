@@ -9,16 +9,38 @@ import { useOsintStore } from '../../osint/osint.store';
 import { GPSJammingLayer } from './GPSJammingLayer';
 import { RocketAlertLayer } from './RocketAlertLayer';
 import { GulfWatchLayer } from './GulfWatchLayer';
-import { ROCKET_ALERT_LAYER_IDS, GULF_WATCH_LAYER_IDS } from './layerIds';
+import { GccWatchLayer } from './GccWatchLayer';
+import { MilitaryBasesLayer } from './MilitaryBasesLayer';
+import {
+  MILITARY_BASES_LAYER_IDS,
+  ROCKET_ALERT_LAYER_IDS,
+  GULF_WATCH_LAYER_IDS,
+  GCC_WATCH_LAYER_IDS,
+} from './layerIds';
 import { useGPSJammingStore } from '../gpsJamming.store';
 
-const ALL_INTERACTIVE_LAYERS = [...ROCKET_ALERT_LAYER_IDS, ...GULF_WATCH_LAYER_IDS];
+const ALL_INTERACTIVE_LAYERS = [
+  ...MILITARY_BASES_LAYER_IDS,
+  ...ROCKET_ALERT_LAYER_IDS,
+  ...GULF_WATCH_LAYER_IDS,
+  ...GCC_WATCH_LAYER_IDS,
+];
 
 const INITIAL_VIEW_STATE = {
   longitude: 0,
   latitude: 20,
   zoom: 1.5,
 };
+
+interface MilitaryPopup {
+  kind: 'military';
+  lng: number;
+  lat: number;
+  name: string;
+  description: string;
+  category: string;
+  country: string;
+}
 
 interface RocketPopup {
   kind: 'rocket';
@@ -46,9 +68,10 @@ interface GulfPopup {
   startedAt: string;
   expiresAt: string;
   sourceCount: number;
+  country?: string;
 }
 
-type ActivePopup = RocketPopup | GulfPopup;
+type ActivePopup = MilitaryPopup | RocketPopup | GulfPopup;
 
 const ROCKET_TYPE_LABEL: Record<number, string> = { 1: 'ROCKET', 2: 'UAV' };
 
@@ -64,6 +87,20 @@ export function MonitorMap() {
   const onClick = useCallback(
     (e: MapLayerMouseEvent) => {
       const feature = e.features?.[0];
+
+      if (feature && MILITARY_BASES_LAYER_IDS.includes(feature.layer.id)) {
+        const p = feature.properties as Record<string, unknown>;
+        setPopup({
+          kind: 'military',
+          lng: (feature.geometry as GeoJSON.Point).coordinates[0],
+          lat: (feature.geometry as GeoJSON.Point).coordinates[1],
+          name: String(p.name ?? ''),
+          description: String(p.description ?? ''),
+          category: String(p.category ?? 'hq'),
+          country: String(p.country ?? ''),
+        });
+        return;
+      }
 
       if (feature && ROCKET_ALERT_LAYER_IDS.includes(feature.layer.id)) {
         const p = feature.properties as Record<string, unknown>;
@@ -82,7 +119,10 @@ export function MonitorMap() {
         return;
       }
 
-      if (feature && GULF_WATCH_LAYER_IDS.includes(feature.layer.id)) {
+      const isGulfLayer = GULF_WATCH_LAYER_IDS.includes(feature?.layer.id ?? '');
+      const isGccLayer = GCC_WATCH_LAYER_IDS.includes(feature?.layer.id ?? '');
+
+      if (feature && (isGulfLayer || isGccLayer)) {
         const p = feature.properties as Record<string, unknown>;
         if (!p.isActive) {
           setPopup(null);
@@ -106,6 +146,7 @@ export function MonitorMap() {
           startedAt: String(p.startedAt ?? ''),
           expiresAt: String(p.expiresAt ?? ''),
           sourceCount: Number(p.sourceCount ?? 0),
+          country: String(p.country ?? 'UAE'),
         });
         return;
       }
@@ -144,7 +185,9 @@ export function MonitorMap() {
         <NavigationControl position="top-right" showCompass={true} visualizePitch={true} />
 
         {gpsJammingEnabled && <GPSJammingLayer />}
+        <MilitaryBasesLayer />
         <GulfWatchLayer />
+        <GccWatchLayer />
         <RocketAlertLayer />
 
         {/* Popups */}
@@ -157,7 +200,9 @@ export function MonitorMap() {
             closeButton={false}
             onClose={() => setPopup(null)}
           >
-            {popup.kind === 'rocket' ? (
+            {popup.kind === 'military' ? (
+              <MilitaryPopupCard popup={popup} onClose={() => setPopup(null)} />
+            ) : popup.kind === 'rocket' ? (
               <RocketPopupCard popup={popup} onClose={() => setPopup(null)} />
             ) : (
               <GulfPopupCard popup={popup} onClose={() => setPopup(null)} />
@@ -172,6 +217,9 @@ export function MonitorMap() {
           Global Monitor
         </div>
       </div>
+
+      {/* UAE status legend */}
+      <GulfWatchLegend />
     </div>
   );
 }
@@ -283,6 +331,72 @@ function RocketPopupCard({ popup, onClose }: { popup: RocketPopup; onClose: () =
   );
 }
 
+const CATEGORY_META: Record<string, { label: string; color: string; textClass: string }> = {
+  air: { label: 'Air Base', color: '#38bdf8', textClass: 'text-sky-400' },
+  naval: { label: 'Naval', color: '#22d3ee', textClass: 'text-cyan-400' },
+  ground: { label: 'Ground', color: '#4ade80', textClass: 'text-green-400' },
+  hq: { label: 'HQ / Cmd', color: '#fbbf24', textClass: 'text-amber-400' },
+};
+
+function MilitaryPopupCard({ popup, onClose }: { popup: MilitaryPopup; onClose: () => void }) {
+  const meta = CATEGORY_META[popup.category] ?? CATEGORY_META.hq;
+  return (
+    <PopupShell
+      accentClass={meta.textClass}
+      headerBgClass="bg-white/4"
+      headerBorderClass="border-white/10"
+      dot=""
+      label={`${meta.label} · ${popup.country}`}
+      onClose={onClose}
+    >
+      <div className="flex items-start gap-1.5">
+        <span
+          className="w-2 h-2 rounded-full shrink-0 mt-0.5"
+          style={{ background: meta.color, boxShadow: `0 0 6px ${meta.color}88` }}
+        />
+        <p className="text-white/90 font-semibold text-[12px] leading-snug">{popup.name}</p>
+      </div>
+      {popup.description && (
+        <p className="text-[9px] text-white/45 leading-relaxed border-l-2 border-white/10 pl-2">
+          {popup.description.slice(0, 160)}
+          {popup.description.length > 160 ? '…' : ''}
+        </p>
+      )}
+      <div className="border-t border-white/6 pt-1 space-y-1">
+        <Row label="Category" value={meta.label} valueClass={meta.textClass} />
+        <Row label="Country" value={popup.country} />
+        <Row label="Coords" value={`${popup.lat.toFixed(4)}°, ${popup.lng.toFixed(4)}°`} />
+      </div>
+    </PopupShell>
+  );
+}
+
+const UAE_LEGEND = [
+  { color: 'rgba(239,68,68,0.8)', label: 'Warning' },
+  { color: 'rgba(251,146,60,0.8)', label: 'Watch' },
+  { color: 'rgba(234,179,8,0.75)', label: 'Advisory' },
+  { color: 'rgba(96,165,250,0.35)', label: 'Clear' },
+] as const;
+
+function GulfWatchLegend() {
+  return (
+    <div className="absolute bottom-8 right-3 z-10 pointer-events-none font-mono">
+      <div className="tech-panel px-2.5 py-2 space-y-1 shadow-lg">
+        <div className="text-[8px] text-white/30 uppercase tracking-widest pb-0.5">Gulf</div>
+        {UAE_LEGEND.map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-sm flex-shrink-0 border border-white/10"
+              style={{ background: color }}
+            />
+            <span className="text-[9px] text-white/50">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function GulfPopupCard({ popup, onClose }: { popup: GulfPopup; onClose: () => void }) {
   const isWarning = popup.alertSeverity === 'warning';
   const fmt = (iso: string) => (iso ? iso.slice(0, 16).replace('T', ' ') : '—');
@@ -292,7 +406,7 @@ function GulfPopupCard({ popup, onClose }: { popup: GulfPopup; onClose: () => vo
       headerBgClass={isWarning ? 'bg-red-500/10' : 'bg-orange-500/10'}
       headerBorderClass={isWarning ? 'border-red-500/25' : 'border-orange-500/25'}
       dot={isWarning ? 'bg-red-400' : 'bg-orange-400'}
-      label={`${popup.alertType.replace('-', ' ').toUpperCase()} · UAE`}
+      label={`${popup.alertType.replace(/-/g, ' ').toUpperCase()} · ${(popup.country ?? 'UAE').toUpperCase()}`}
       onClose={onClose}
     >
       <div>

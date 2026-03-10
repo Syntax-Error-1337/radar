@@ -35,7 +35,25 @@ export function useRocketAlerts() {
       if (!res.ok) throw new Error('Failed to fetch rocket alerts');
       return res.json();
     },
-    refetchInterval: 30_000, // re-poll every 30 s (matches source cache interval)
+    refetchInterval: 30_000,
     staleTime: 25_000,
+  });
+}
+
+export interface AlertHistoryDay {
+  date: string;
+  alerts: RocketAlertItem[];
+}
+
+export function useRocketAlertHistory(hours = 24) {
+  return useQuery<{ days: AlertHistoryDay[] }>({
+    queryKey: ['rocket-alerts-history', hours],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/monitor/rocket-alerts/history?hours=${hours}`);
+      if (!res.ok) throw new Error('Failed to fetch rocket alert history');
+      return res.json();
+    },
+    staleTime: 5 * 60_000, // history changes slowly — cache 5 min
+    gcTime: 10 * 60_000,
   });
 }

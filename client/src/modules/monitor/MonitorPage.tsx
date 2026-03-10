@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MonitorMap } from './components/MonitorMap';
-import { GPSJammingWidget } from './components/widgets/GPSJammingWidget';
+import { MapLayersWidget } from './components/widgets/MapLayersWidget';
 import { RocketAlertWidget } from './components/widgets/RocketAlertWidget';
-import { GulfWatchWidget } from './components/widgets/GulfWatchWidget';
+import { GulfWatchCombinedWidget } from './components/widgets/GulfWatchCombinedWidget';
 import { useOsintStore } from '../osint/osint.store';
 import { useOsintNews } from '../osint/hooks/useOsintNews';
 import { useIntelBrief } from '../osint/hooks/useIntelBrief';
@@ -165,24 +165,24 @@ export const MonitorPage: React.FC = () => {
         {/* Subtle dot-grid */}
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(rgba(0,229,255,0.12)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
 
-        <div className="relative z-10 h-full p-3 grid grid-cols-12 gap-3">
-          {/* ══ GPS Jamming — col 3 ══ */}
-          <div className="col-span-3 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-orange-500/25 transition-colors">
-            <GPSJammingWidget />
+        <div className="relative z-10 h-full p-3 flex gap-3">
+          {/* ══ Map Layers (GPS Jamming + Military Bases) ══ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-intel-accent/20 transition-colors">
+            <MapLayersWidget />
           </div>
 
-          {/* ══ Rocket Alerts — col 2 ══ */}
-          <div className="col-span-2 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-red-500/25 transition-colors">
+          {/* ══ Rocket Alerts ══ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-red-500/25 transition-colors">
             <RocketAlertWidget />
           </div>
 
-          {/* ══ Gulf Watch — col 2 ══ */}
-          <div className="col-span-2 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-orange-500/25 transition-colors">
-            <GulfWatchWidget />
+          {/* ══ Gulf Watch (UAE + GCC) ══ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-orange-500/25 transition-colors">
+            <GulfWatchCombinedWidget />
           </div>
 
-          {/* ══ AI Synthesis — col 3 ══ */}
-          <div className="col-span-3 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-purple-500/25 transition-colors">
+          {/* ══ AI Synthesis ══ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-purple-500/25 transition-colors">
             {/* Header */}
             <div className="flex items-center justify-between shrink-0 pb-2 border-b border-white/8">
               <div className="flex items-center gap-1.5">
@@ -322,8 +322,8 @@ export const MonitorPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ══ Live Intel Feed — col 2 ══ */}
-          <div className="col-span-2 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-intel-accent/20 transition-colors">
+          {/* ══ Live Intel Feed ══ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden rounded-sm border border-white/8 bg-black/50 p-3 hover:border-intel-accent/20 transition-colors">
             {/* Header */}
             <div className="flex items-center justify-between shrink-0 pb-2 border-b border-white/8">
               <div className="flex items-center gap-1.5">

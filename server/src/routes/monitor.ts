@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as gpsjam from '../core/source/gpsjam';
 import * as rocketalert from '../core/source/rocketalert';
 import * as gulfwatch from '../core/source/gulfwatch';
+import * as militarybases from '../core/source/militarybases';
 
 const router = Router();
 
@@ -237,7 +238,7 @@ router.get('/rocket-alerts/daily', async (req, res) => {
  */
 router.get('/gulf-watch/alerts', async (req, res) => {
   try {
-    const summary = await gulfwatch.getAlertSummary();
+    const summary = await gulfwatch.getAlertSummary('uae');
     res.json(summary);
   } catch (error: any) {
     console.error('[API] GulfWatch alerts error:', error);
@@ -248,18 +249,12 @@ router.get('/gulf-watch/alerts', async (req, res) => {
 /**
  * GET /api/monitor/gulf-watch/alerts/history
  * Recent alert history for UAE.
- *
- * Query parameters:
- *   limit  – max records (default 50, max 200)
- *   offset – pagination offset (default 0)
- *
- * Response: { alerts: GulfWatchAlert[], count: number }
  */
 router.get('/gulf-watch/alerts/history', async (req, res) => {
   try {
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
     const offset = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0);
-    const data = await gulfwatch.fetchAlertHistory(limit, offset);
+    const data = await gulfwatch.fetchAlertHistory('uae', limit, offset);
     res.json(data);
   } catch (error: any) {
     console.error('[API] GulfWatch history error:', error);
@@ -267,18 +262,115 @@ router.get('/gulf-watch/alerts/history', async (req, res) => {
   }
 });
 
+// ── Generic GCC country routes ────────────────────────────────────────────────
+
+/**
+ * GET /api/monitor/gulf-watch/:country/alerts
+ * Active alert summary for any supported GCC country.
+ * Supported: qatar | bahrain | kuwait | oman | uae
+ */
+router.get('/gulf-watch/:country/alerts', async (req, res) => {
+  const country = req.params.country as gulfwatch.GccCountry;
+  if (!(gulfwatch.SUPPORTED_COUNTRIES as readonly string[]).includes(country)) {
+    res.status(400).json({ error: `Unsupported country: ${country}` });
+    return;
+  }
+  try {
+    const summary = await gulfwatch.getAlertSummary(country);
+    res.json(summary);
+  } catch (error: any) {
+    console.error(`[API] GulfWatch ${country} alerts error:`, error);
+    res.status(500).json({ error: `Failed to fetch ${country} alerts`, message: error.message });
+  }
+});
+
+/**
+ * GET /api/monitor/gulf-watch/:country/alerts/history
+ * Alert history for any supported GCC country.
+ */
+router.get('/gulf-watch/:country/alerts/history', async (req, res) => {
+  const country = req.params.country as gulfwatch.GccCountry;
+  if (!(gulfwatch.SUPPORTED_COUNTRIES as readonly string[]).includes(country)) {
+    res.status(400).json({ error: `Unsupported country: ${country}` });
+    return;
+  }
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? '50'), 10) || 50));
+    const offset = Math.max(0, parseInt(String(req.query.offset ?? '0'), 10) || 0);
+    const data = await gulfwatch.fetchAlertHistory(country, limit, offset);
+    res.json(data);
+  } catch (error: any) {
+    console.error(`[API] GulfWatch ${country} history error:`, error);
+    res.status(500).json({ error: `Failed to fetch ${country} history`, message: error.message });
+  }
+});
+
 /**
  * GET /api/monitor/gulf-watch/geojson
- * UAE emirates GeoJSON (proxied to avoid CORS; cached by CDN).
+ * UAE GeoJSON — kept for backwards compatibility.
  */
 router.get('/gulf-watch/geojson', async (req, res) => {
   try {
-    const geojson = await gulfwatch.fetchEmiratesGeoJSON();
+    const geojson = await gulfwatch.fetchCountryGeoJSON('uae');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.json(geojson);
   } catch (error: any) {
     console.error('[API] GulfWatch GeoJSON error:', error);
     res.status(500).json({ error: 'Failed to fetch emirates GeoJSON', message: error.message });
+  }
+});
+
+/**
+ * GET /api/monitor/gulf-watch/:country/geojson
+ * Region boundary GeoJSON for any supported GCC country (1 h CDN cache).
+ */
+router.get('/gulf-watch/:country/geojson', async (req, res) => {
+  const country = req.params.country as gulfwatch.GccCountry;
+  if (!(gulfwatch.SUPPORTED_COUNTRIES as readonly string[]).includes(country)) {
+    res.status(400).json({ error: `Unsupported country: ${country}` });
+    return;
+  }
+  try {
+    const geojson = await gulfwatch.fetchCountryGeoJSON(country);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(geojson);
+  } catch (error: any) {
+    console.error(`[API] GulfWatch ${country} GeoJSON error:`, error);
+    res.status(500).json({ error: `Failed to fetch ${country} GeoJSON`, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Military Bases routes  (source: local KML)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/monitor/military-bases
+ * All global military installations as a GeoJSON FeatureCollection.
+ * Cached indefinitely — static dataset.
+ */
+router.get('/military-bases', (_req, res) => {
+  try {
+    const geojson = militarybases.getMilitaryBasesGeoJSON();
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.json(geojson);
+  } catch (error: any) {
+    console.error('[API] Military bases error:', error);
+    res.status(500).json({ error: 'Failed to load military bases', message: error.message });
+  }
+});
+
+/**
+ * GET /api/monitor/military-bases/stats
+ * Summary counts by category.
+ */
+router.get('/military-bases/stats', (_req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.json(militarybases.getMilitaryBaseStats());
+  } catch (error: any) {
+    console.error('[API] Military bases stats error:', error);
+    res.status(500).json({ error: 'Failed to load stats', message: error.message });
   }
 });
 

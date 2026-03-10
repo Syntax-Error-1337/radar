@@ -62,8 +62,13 @@ async function apiFetch<T>(url: string): Promise<T> {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    if (!json.success) throw new Error(json.error ?? 'Unknown API error');
-    return json.payload as T;
+    // v2 endpoints wrap responses: { success, payload }
+    // v1 endpoints return the data directly (array or number)
+    if (json !== null && typeof json === 'object' && !Array.isArray(json) && 'success' in json) {
+      if (!json.success) throw new Error(json.error ?? 'Unknown API error');
+      return json.payload as T;
+    }
+    return json as T;
   } finally {
     clearTimeout(timer);
   }

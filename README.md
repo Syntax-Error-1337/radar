@@ -1,15 +1,15 @@
-# Radar — Geospatial Intelligence Platform
+# INTELMAP — Geospatial Intelligence Platform
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.0-blue?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=nodedotjs)
 ![MapLibre](https://img.shields.io/badge/MapLibre_GL_JS-5.x-396CB2?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
-**A comprehensive real-time geospatial intelligence platform for tracking aircraft, maritime vessels, cybersecurity threats, and news intelligence.**
+**A real-time geospatial intelligence platform for tracking aircraft, maritime vessels, GPS interference, conflict zones, and active threat alerts.**
 
 [Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [API](#-api-reference) • [Contributing](CONTRIBUTING.md)
 
@@ -19,26 +19,28 @@
 
 ## Overview
 
-**Radar** is a full-stack geospatial intelligence dashboard that aggregates real-time data from multiple sources to provide comprehensive situational awareness across four intelligence domains:
+**INTELMAP** is a full-stack geospatial intelligence dashboard that aggregates real-time data from multiple sources to provide comprehensive situational awareness across six intelligence domains:
 
-- **🛩️ Flight Tracking** — Live aircraft positions via ADS-B data
+- **✈️ Flight Tracking** — Live aircraft positions via ADS-B data
 - **🚢 Maritime Tracking** — Global vessel tracking via AIS streams
 - **🛡️ Cyber Intelligence** — Internet security metrics via Cloudflare Radar
 - **🌍 OSINT Monitor** — Geo-located news feeds and AI-powered intelligence briefs
+- **📡 GPS Jamming** — Global GPS interference heatmap using H3 hex cells
+- **🚨 Threat Alerts** — Live rocket/UAV alerts (Israel) and UAE regional threat alerts (GulfWatch)
 
-Built with React 19, TypeScript, Express.js, and MapLibre GL JS, Radar delivers a high-performance, military-styled interface with three visual modes (EO/FLIR/CRT).
+Built with React 19, TypeScript, Express.js, and MapLibre GL JS — delivering a high-performance, military-styled interface with three visual modes (EO/FLIR/CRT).
 
 ---
 
 ## ✨ Features
 
-### 🛩️ Flight Tracking Module
+### ✈️ Flight Tracking Module
 
 - **Live ADS-B data** from ADSB.lol (community-fed, no auth required) or OpenSky Network
 - **Rich telemetry** — altitude (barometric/geometric), speed, heading, vertical rate, squawk codes, Mach, IAS, TAS, roll angle, wind speed/direction, OAT/TAT, navigation modes, RSSI
 - **Aircraft enrichment** — registration, manufacturer, model, operator, type code, year built (DuckDB + Parquet database)
 - **Route history visualization** with origin airport data
-- **Geographic filtering** via configurable bounding box (reduces API load)
+- **Geographic filtering** via configurable bounding box
 - **On-ground/airborne detection** with visual distinction
 - **Emergency squawk highlighting** (7500, 7600, 7700)
 - **Globe & Mercator projections** — toggle between 3D and flat views
@@ -51,33 +53,56 @@ Built with React 19, TypeScript, Express.js, and MapLibre GL JS, Radar delivers 
 - **Historical trail rendering** — last 150 position points per vessel
 - **Stale vessel purging** — automatic cleanup after 30 minutes of inactivity
 - **Auto-reconnect** — 5-second backoff on WebSocket disconnect
+- **Status endpoint** — live connection health, vessel count, message stats
 
-### 🌍 OSINT Monitor Module
+### 📡 GPS Jamming Module
 
-A comprehensive intelligence monitoring dashboard with three real-time panels:
+- **Global interference heatmap** using H3 resolution-4 hex cells
+- **Daily datasets** auto-downloaded from GPSJam.org (local CSV cache)
+- **Interference ratio visualization** — good vs. bad aircraft signal counts per cell
+- **Date selector** — browse historical datasets going back weeks
+- **Auto-backfill** — server downloads missing daily datasets on startup
+- **Stats endpoint** — per-date summary (total cells, suspect flag, high-interference cell count)
 
-#### Live News Panel
+### 🚨 Threat Alerts — OSINT Monitor Module
 
-- **Geo-located RSS feeds** from a massive 56,000+ line database
-- Automatically detects country from map coordinates
-- Fetches region-specific news (geopolitical, defense, local sources)
-- Falls back to international feeds (Reuters, AP, BBC) if no local match
+A live threat monitoring dashboard with four real-time intelligence panels:
 
-#### Live Webcams Panel
+#### GPS Jamming Widget
 
-- Rotating display of live webcam feeds from strategic locations
-- Visual HUMINT supplement for ground-truth verification
+- Real-time interference stats from latest dataset
+- High-interference cell count and coverage area
+
+#### Rocket Alert Widget (Israel)
+
+- **Source**: `agg.rocketalert.live` — live rocket and UAV alert bursts
+- Shows active areas, alert type (rocket vs. UAV), countdown seconds, Hebrew and English names
+- **Map layer**: Circle markers positioned by alert coordinates, colored red (rocket) / orange (UAV)
+- Click any marker for full popup: EN/HE names, area, countdown, coordinates, timestamp
+- 24-hour totals and 7-day daily trend chart
+
+#### GulfWatch Widget (UAE)
+
+- **Source**: `gulfwatch-api.onrender.com` — regional threat alerts for UAE emirates
+- Shows active emirate, alert type, severity (warning/watch), description, start/expiry time
+- **Map layer**: Emirate polygon fills + centroid markers; colored by severity
+- Click any polygon or marker for full popup: EN/AR names, description, severity, source count, timeline
 
 #### AI Insights Panel
 
 - **LLM-powered intelligence briefs** via OpenRouter API
 - Generates military-styled summaries from intercepted news headlines
-- Regional context-aware analysis
-- Uses Google Gemini 2.5 Flash (fast, cost-effective)
+- Regional context-aware analysis using Google Gemini 2.5 Flash
+
+#### Live News Panel
+
+- **Geo-located RSS feeds** from a 56,000+ line database (190+ countries)
+- Fetches region-specific news (geopolitical, defense, local sources)
+- Falls back to international feeds (Reuters, AP, BBC) if no local match
 
 ### 🛡️ Cyber Intelligence Module
 
-Powered by **Cloudflare Radar API** for global internet security metrics:
+Powered by **Cloudflare Radar API**:
 
 - **DDoS attack origins** — top countries launching Layer 7 attacks
 - **Traffic anomalies** — internet routing anomalies and BGP events
@@ -103,14 +128,21 @@ Three visual themes selectable from the navigation bar:
 ### Project Structure
 
 ```
-radar/
+intelmap/
 ├── client/               # React 19 + Vite frontend (port 5173)
 │   └── src/
 │       ├── app/          # Entry point, routes, providers
 │       ├── modules/
 │       │   ├── flights/        # ADS-B aircraft tracking
 │       │   ├── maritime/       # AIS vessel tracking
-│       │   ├── monitor/        # OSINT intelligence hub
+│       │   ├── monitor/        # OSINT + threat alert hub
+│       │   │   ├── components/ # Map layers & widgets
+│       │   │   │   ├── GPSJammingLayer.tsx
+│       │   │   │   ├── RocketAlertLayer.tsx
+│       │   │   │   ├── GulfWatchLayer.tsx
+│       │   │   │   ├── layerIds.ts        # shared layer ID constants
+│       │   │   │   └── widgets/           # dashboard panel components
+│       │   │   └── hooks/      # React Query data hooks
 │       │   ├── cyber/          # Cloudflare Radar integration
 │       │   └── osint/          # Shared OSINT components
 │       ├── ui/
@@ -125,18 +157,24 @@ radar/
         │   │   ├── adsblol.ts       # ADSB.lol polling + cache
         │   │   ├── opensky.ts       # OpenSky fallback
         │   │   ├── aisstream.ts     # AISStream WebSocket singleton
-        │   │   └── cloudflare.ts    # Cloudflare Radar API client
+        │   │   ├── cloudflare.ts    # Cloudflare Radar API client
+        │   │   ├── gpsjam.ts        # GPSJam CSV ingestion + H3 query
+        │   │   ├── rocketalert.ts   # Rocket/UAV alert polling
+        │   │   └── gulfwatch.ts     # UAE GulfWatch alert polling
         │   ├── aircraft_db.ts       # DuckDB/Parquet aircraft enrichment
+        │   ├── scheduler.ts         # Cron-like job runner for data ingestion
         │   └── cache.ts             # TTL cache utility
         ├── routes/
         │   ├── flights.ts           # GET /api/flights/*
         │   ├── maritime.ts          # GET /api/maritime/*
-        │   ├── monitor.ts           # GET /api/monitor/* (monitoring endpoints)
+        │   ├── monitor.ts           # GET /api/monitor/* (GPS jamming, alerts)
         │   ├── geo.ts               # GET /api/geo/* (news, intel briefs)
         │   └── cyber.ts             # GET /api/cyber/* (Cloudflare proxy)
+        ├── Data/
+        │   └── gpsjam/              # Daily GPS interference CSVs + manifest
         ├── types/                   # TypeScript definitions
         ├── news_feeds.json          # 56k+ line RSS database (190+ countries)
-        └── index.ts                 # Server entry point
+        └── index.ts                 # Server entry point + scheduler bootstrap
 ```
 
 ### Tech Stack
@@ -152,6 +190,7 @@ radar/
 | Backend runtime    | Node.js 20 + Express 4               |
 | Aircraft database  | DuckDB + Parquet                     |
 | Maritime stream    | WebSocket (`ws` library)             |
+| H3 spatial index   | H3-js (Uber H3 hex grid)             |
 | RSS parsing        | rss-parser                           |
 | Geolocation        | which-country + i18n-iso-countries   |
 | Build tooling      | `concurrently` (monorepo dev runner) |
@@ -178,10 +217,7 @@ This installs dependencies for both `client` and `server` workspaces.
 #### Server — `server/.env`
 
 ```bash
-# Copy example file
 cp server/.env.example server/.env
-
-# Edit with your API keys
 nano server/.env
 ```
 
@@ -196,7 +232,7 @@ nano server/.env
 **Optional:**
 
 ```ini
-# Flight data source (default: adsblol - no key required)
+# Flight data source (default: adsblol — no key required)
 FLIGHT_DATA_SOURCE=adsblol
 
 # Geographic center for ADSB.lol queries
@@ -208,6 +244,9 @@ ADSB_LOL_RADIUS=25000  # nautical miles (25000 ≈ global)
 # OPENSKY_CLIENT_ID=your_email@example.com
 # OPENSKY_CLIENT_SECRET=your_secret_here
 ```
+
+> **Note:** GPS jamming data is fetched automatically from GPSJam.org — no API key required.
+> Rocket alerts and GulfWatch alerts are fetched from public endpoints — no key required.
 
 #### Client — `client/.env`
 
@@ -228,9 +267,9 @@ npm run dev
 
 This starts:
 
-- **Frontend** → [http://localhost:5173](http://localhost:5173)
-- **Backend** → [http://localhost:3001](http://localhost:3001)
-- **Health check** → [http://localhost:3001/health](http://localhost:3001/health)
+- **Frontend** → http://localhost:5173
+- **Backend** → http://localhost:3001
+- **Health check** → http://localhost:3001/health
 
 ---
 
@@ -240,33 +279,56 @@ All routes served by Express backend on port `3001`.
 
 ### Flights
 
-| Method | Endpoint                     | Description                                            |
-| ------ | ---------------------------- | ------------------------------------------------------ |
-| `GET`  | `/api/flights/states`        | Returns all tracked aircraft as `AircraftState[]`      |
-| `GET`  | `/api/flights/track/:icao24` | Returns route path for specific aircraft by ICAO24 hex |
+| Method | Endpoint                     | Description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| `GET`  | `/api/flights/states`        | All tracked aircraft as `AircraftState[]`      |
+| `GET`  | `/api/flights/track/:icao24` | Route path for specific aircraft by ICAO24 hex |
 
 ### Maritime
 
-| Method | Endpoint                 | Description                                                       |
-| ------ | ------------------------ | ----------------------------------------------------------------- |
-| `GET`  | `/api/maritime/snapshot` | Returns all live vessels as `VesselState[]` with position history |
+| Method | Endpoint                     | Description                                     |
+| ------ | ---------------------------- | ----------------------------------------------- |
+| `GET`  | `/api/maritime/snapshot`     | All live vessels (position/heading, no history) |
+| `GET`  | `/api/maritime/vessel/:mmsi` | Full vessel detail including position history   |
+| `GET`  | `/api/maritime/status`       | WebSocket health, vessel count, message stats   |
 
-### Monitor (OSINT)
+### Monitor — GPS Jamming
 
-_Note: Monitor module endpoints are currently being refactored._
+| Method | Endpoint                            | Description                                                   |
+| ------ | ----------------------------------- | ------------------------------------------------------------- |
+| `GET`  | `/api/monitor/gps-jamming`          | H3 interference cells (`?date=`, `?minInterference=`, `?h3=`) |
+| `GET`  | `/api/monitor/gps-jamming/dates`    | Available dataset dates                                       |
+| `GET`  | `/api/monitor/gps-jamming/stats`    | Per-date interference statistics (`?date=`)                   |
+| `POST` | `/api/monitor/gps-jamming/backfill` | Manually trigger dataset backfill (`{limit?}`)                |
+
+### Monitor — Rocket Alerts
+
+| Method | Endpoint                             | Description                                         |
+| ------ | ------------------------------------ | --------------------------------------------------- |
+| `GET`  | `/api/monitor/rocket-alerts`         | Live burst summary + 24h total + 7-day daily counts |
+| `GET`  | `/api/monitor/rocket-alerts/history` | Per-alert records (`?hours=24&alertTypeId=-1`)      |
+| `GET`  | `/api/monitor/rocket-alerts/daily`   | Per-day counts (`?days=7&alertTypeId=-1`)           |
+
+### Monitor — GulfWatch (UAE)
+
+| Method | Endpoint                                 | Description                          |
+| ------ | ---------------------------------------- | ------------------------------------ |
+| `GET`  | `/api/monitor/gulf-watch/alerts`         | Active UAE threat alert summary      |
+| `GET`  | `/api/monitor/gulf-watch/alerts/history` | Alert history (`?limit=50&offset=0`) |
+| `GET`  | `/api/monitor/gulf-watch/geojson`        | UAE emirates GeoJSON (1-hour cache)  |
 
 ### Geo (OSINT)
 
-| Method | Endpoint               | Description                                                                        |
-| ------ | ---------------------- | ---------------------------------------------------------------------------------- |
-| `GET`  | `/api/geo/news`        | Geo-located RSS news feeds (query: `?lat=<lat>&lon=<lon>&category=<category>`)     |
-| `POST` | `/api/geo/intel-brief` | Generate LLM intelligence brief from news headlines (body: `{news: [], lat, lon}`) |
+| Method | Endpoint               | Description                                                         |
+| ------ | ---------------------- | ------------------------------------------------------------------- |
+| `GET`  | `/api/geo/news`        | Geo-located RSS news feeds (`?lat=&lon=&category=`)                 |
+| `POST` | `/api/geo/intel-brief` | LLM intelligence brief from news headlines (`{news: [], lat, lon}`) |
 
 ### Cyber
 
-| Method | Endpoint             | Description                                                                            |
-| ------ | -------------------- | -------------------------------------------------------------------------------------- |
-| `GET`  | `/api/cyber/radar/*` | Proxy for Cloudflare Radar API (e.g., `/api/cyber/radar/attacks/layer7/top/locations`) |
+| Method | Endpoint             | Description                                                            |
+| ------ | -------------------- | ---------------------------------------------------------------------- |
+| `GET`  | `/api/cyber/radar/*` | Proxy for Cloudflare Radar API (e.g., `/attacks/layer7/top/locations`) |
 
 ### System
 
@@ -283,20 +345,33 @@ _Note: Monitor module endpoints are currently being refactored._
 - **URL**: `https://api.adsb.lol/v2/point/{lat}/{lon}/{radius}`
 - **Auth**: None required (community-operated, free)
 - **Polling**: 3-second TTL cache on backend
-- **Enrichment**: Aircraft details joined from local DuckDB/Parquet database
-
-### OpenSky Network (Flights Fallback)
-
-- **URL**: `https://opensky-network.org/api/states/all`
-- **Auth**: Optional (higher rate limits with account)
-- **Note**: Less complete telemetry than ADSB.lol
 
 ### AISStream.io (Maritime)
 
 - **URL**: `wss://stream.aisstream.io/v0/stream`
-- **Auth**: API key required (free tier: 15 requests/min)
+- **Auth**: API key required (free tier)
 - **Coverage**: Global bounding box `[[-90, -180], [90, 180]]`
 - **Memory**: Up to 150 history points per vessel; stale vessels purged after 30 min
+
+### GPSJam.org (GPS Jamming)
+
+- **URL**: `https://gpsjam.org/data/{date}-h3_4.csv`
+- **Auth**: None required (public dataset)
+- **Format**: CSV with H3 hex index, good/bad aircraft counts per cell
+- **Schedule**: New dataset auto-downloaded daily via server scheduler
+
+### Rocket Alert Live (Threat Alerts — Israel)
+
+- **URL**: `https://agg.rocketalert.live/api/v1/`
+- **Auth**: None required (public API)
+- **Data**: Live rocket and UAV alert bursts with coordinates, Hebrew/English names, countdown
+
+### GulfWatch (Threat Alerts — UAE)
+
+- **Alerts API**: `https://gulfwatch-api.onrender.com/api`
+- **GeoJSON**: `https://gulfwatch.ai/data/uae-emirates.geojson`
+- **Auth**: None required
+- **Data**: Active emirate-level threat alerts with severity, type, description
 
 ### Cloudflare Radar (Cyber)
 
@@ -314,8 +389,6 @@ _Note: Monitor module endpoints are currently being refactored._
 
 ## 🐳 Docker Deployment
 
-### Build and Run
-
 ```bash
 # Build image
 npm run docker:build
@@ -327,13 +400,10 @@ npm run docker:run
 npm run docker:compose:build
 ```
 
-### Docker Compose
-
 ```yaml
 services:
-  radar:
+  intelmap:
     build: .
-    container_name: radar
     ports:
       - '3001:3001'
     env_file:
@@ -366,11 +436,10 @@ services:
 | File                         | Description                             |
 | ---------------------------- | --------------------------------------- |
 | `package.json`               | Monorepo workspace configuration        |
-| `client/package.json`        | Frontend dependencies                   |
-| `server/package.json`        | Backend dependencies                    |
 | `client/.env.example`        | Frontend environment template           |
 | `server/.env.example`        | Backend environment template            |
 | `server/src/news_feeds.json` | 56k+ line RSS database (190+ countries) |
+| `server/src/Data/gpsjam/`    | Daily GPS interference CSV datasets     |
 | `Dockerfile`                 | Multi-stage production build            |
 | `docker-compose.yml`         | Orchestration config                    |
 
@@ -386,16 +455,7 @@ To run the flight module without API dependencies:
    ```
 2. Restart dev server. Uses bundled `flights_sample.json` fixture.
 
-**Note:** Maritime, monitor, and cyber modules require live API connections.
-
----
-
-## 📊 Performance
-
-- **Frontend bundle size**: ~400 KB gzipped (with code splitting)
-- **Map render**: 60 FPS on modern hardware (WebGL acceleration)
-- **Backend memory**: ~150 MB baseline (grows with aircraft DB)
-- **Concurrent users**: Tested up to 50 simultaneous connections
+**Note:** Maritime, GPS jamming, alert, and cyber modules require live API connections.
 
 ---
 
@@ -406,17 +466,15 @@ Toggle between two rendering modes via the **VIEW** button:
 - **Mercator** — Standard flat 2D projection (best for regional detail)
 - **Globe** — 3D spherical projection (best for global awareness)
 
-Powered by MapLibre GL JS v5 with custom terrain shading.
-
 ---
 
 ## 🔒 Security Notes
 
 - **Never commit `.env` files** — use `.env.example` templates only
-- **API keys in code**: All secrets are server-side only; frontend receives pre-processed data
+- **All secrets are server-side** — the frontend receives pre-processed data only
 - **CORS**: Currently permissive for development; restrict in production
 - **Rate limiting**: Not yet implemented; add middleware before public deployment
-- **Rotate keys**: If you accidentally commit secrets, rotate them immediately
+- **Rotate keys immediately** if you accidentally expose them in git history
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
@@ -446,25 +504,25 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 
 - **ADSB.lol** — Community-fed ADS-B network
 - **AISStream.io** — Free maritime AIS WebSocket API
+- **GPSJam.org** — Open GPS interference dataset
+- **Rocket Alert Live** — Real-time Israeli alert API
+- **GulfWatch** — UAE regional threat monitoring
 - **Cloudflare Radar** — Internet security metrics
-- **OpenSky Network** — Flight data fallback
 - **MapLibre GL JS** — Open-source map rendering
-- **Contributors** — See [GitHub contributors](https://github.com/Syntax-Error-1337/radar/graphs/contributors)
 
 ---
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/Syntax-Error-1337/radar/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Syntax-Error-1337/radar/discussions)
-- **Email**: nomails1337@gmail.com
+- **Issues**: [GitHub Issues](https://github.com/Syntax-Error-1337/INTELMAP/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Syntax-Error-1337/INTELMAP/discussions)
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for the OSINT community**
+**Built for the open-source OSINT community**
 
-[⬆ Back to top](#radar--geospatial-intelligence-platform)
+[⬆ Back to top](#intelmap--geospatial-intelligence-platform)
 
 </div>

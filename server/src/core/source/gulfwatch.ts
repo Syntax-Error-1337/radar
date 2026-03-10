@@ -5,7 +5,14 @@
  */
 
 const BASE = 'https://gulfwatch-api.onrender.com/api';
-const GEOJSON_URL = 'https://gulfwatch.ai/data/uae-emirates.geojson';
+
+const GEOJSON_URLS = {
+  uae: 'https://gulfwatch.ai/data/uae-emirates.geojson',
+  qatar: 'https://gulfwatch.ai/data/qatar-municipalities.geojson',
+  bahrain: 'https://gulfwatch.ai/data/bahrain-governorates.geojson',
+  kuwait: 'https://gulfwatch.ai/data/kuwait-governorates.geojson',
+  oman: 'https://gulfwatch.ai/data/oman-governorates.geojson',
+} as const;
 const TIMEOUT_MS = 10_000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,8 +26,9 @@ export interface GulfWatchAlert {
   id: string;
   emirateId: string;
   type: string; // 'air-raid' | 'security' | etc.
-  severity: string; // 'warning' | 'watch' | etc.
+  severity: string; // 'warning' | 'watch' | 'advisory'
   description: AlertDescription;
+  sourceText?: string; // full source text — only in history
   startedAt: string; // ISO 8601
   expiresAt: string; // ISO 8601
   expiredAt?: string; // ISO 8601 — only present in history
@@ -68,23 +76,34 @@ async function apiFetch<T>(url: string): Promise<T> {
   }
 }
 
+// Supported GCC country slugs (saudi-arabia excluded — API returns error)
+export const SUPPORTED_COUNTRIES = ['uae', 'qatar', 'bahrain', 'kuwait', 'oman'] as const;
+export type GccCountry = (typeof SUPPORTED_COUNTRIES)[number];
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Fetch current active alerts per emirate.
+ * Fetch current active alerts per region for any supported GCC country.
  */
-export async function fetchActiveAlerts(): Promise<ActiveAlertsResponse> {
-  return apiFetch<ActiveAlertsResponse>(`${BASE}/alerts?country=uae`);
+export async function fetchActiveAlerts(
+  country: GccCountry = 'uae',
+): Promise<ActiveAlertsResponse> {
+  return apiFetch<ActiveAlertsResponse>(`${BASE}/alerts?country=${country}`);
 }
 
 /**
- * Fetch recent alert history.
- * @param limit  Max records to return (default 50)
- * @param offset Pagination offset (default 0)
+ * Fetch recent alert history for any supported GCC country.
+ * @param country  GCC country slug
+ * @param limit    Max records to return (default 50)
+ * @param offset   Pagination offset (default 0)
  */
-export async function fetchAlertHistory(limit = 50, offset = 0): Promise<AlertHistoryResponse> {
+export async function fetchAlertHistory(
+  country: GccCountry = 'uae',
+  limit = 50,
+  offset = 0,
+): Promise<AlertHistoryResponse> {
   const params = new URLSearchParams({
-    country: 'uae',
+    country,
     limit: String(limit),
     offset: String(offset),
   });
@@ -92,18 +111,23 @@ export async function fetchAlertHistory(limit = 50, offset = 0): Promise<AlertHi
 }
 
 /**
- * Fetch the UAE emirates GeoJSON (MultiPolygon per emirate).
+ * Fetch region boundary GeoJSON for any supported GCC country.
  * Feature properties: { id, name_en, name_ar }
  */
+export async function fetchCountryGeoJSON(country: GccCountry = 'uae'): Promise<unknown> {
+  return apiFetch<unknown>(GEOJSON_URLS[country]);
+}
+
+/** @deprecated Use fetchCountryGeoJSON('uae') */
 export async function fetchEmiratesGeoJSON(): Promise<unknown> {
-  return apiFetch<unknown>(GEOJSON_URL);
+  return fetchCountryGeoJSON('uae');
 }
 
 /**
- * Summarise active alerts for dashboard consumption.
+ * Summarise active alerts for dashboard consumption (any supported GCC country).
  */
-export async function getAlertSummary(): Promise<AlertSummary> {
-  const data = await fetchActiveAlerts().catch(
+export async function getAlertSummary(country: GccCountry = 'uae'): Promise<AlertSummary> {
+  const data = await fetchActiveAlerts(country).catch(
     (): ActiveAlertsResponse => ({ emirateStatuses: [], lastUpdated: new Date().toISOString() }),
   );
 
