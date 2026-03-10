@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/maplibre';
+import type { ExpressionSpecification } from 'maplibre-gl';
 import { useMilitaryBases } from '../hooks/useMilitaryBases';
 import { useMilitaryBasesStore } from '../militaryBases.store';
 
 export const MILITARY_BASES_LAYER_IDS = ['military-bases-halo', 'military-bases-dot'];
 
 // MapLibre expression — color by category
-const CATEGORY_COLOR = [
+const CATEGORY_COLOR: ExpressionSpecification = [
   'match',
   ['get', 'category'],
   'air',
@@ -16,9 +17,9 @@ const CATEGORY_COLOR = [
   'ground',
   '#4ade80', // green-400
   '#fbbf24', // amber-400 (hq / default)
-] as const;
+];
 
-const CATEGORY_HALO = [
+const CATEGORY_HALO: ExpressionSpecification = [
   'match',
   ['get', 'category'],
   'air',
@@ -28,7 +29,7 @@ const CATEGORY_HALO = [
   'ground',
   'rgba(74,  222, 128, 0.15)',
   'rgba(251, 191, 36,  0.15)',
-] as const;
+];
 
 /**
  * Renders global military installations on the map,

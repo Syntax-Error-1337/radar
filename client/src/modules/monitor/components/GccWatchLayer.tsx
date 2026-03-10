@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/maplibre';
+import type { ExpressionSpecification } from 'maplibre-gl';
 import {
   GCC_COUNTRIES,
   useGccCountryAlerts,
@@ -40,7 +41,7 @@ const REGION_CENTROIDS: Record<string, [number, number]> = {
   'al-wusta': [56.82, 21.53],
 };
 
-const FILL_COLOR = [
+const FILL_COLOR: ExpressionSpecification = [
   'case',
   ['==', ['get', 'alertSeverity'], 'warning'],
   'rgba(239, 68, 68, 0.18)',
@@ -49,9 +50,9 @@ const FILL_COLOR = [
   ['==', ['get', 'alertSeverity'], 'advisory'],
   'rgba(234, 179, 8, 0.12)',
   'rgba(96, 165, 250, 0.06)',
-] as const;
+];
 
-const OUTLINE_COLOR = [
+const OUTLINE_COLOR: ExpressionSpecification = [
   'case',
   ['==', ['get', 'alertSeverity'], 'warning'],
   'rgba(239, 68, 68, 0.75)',
@@ -60,25 +61,25 @@ const OUTLINE_COLOR = [
   ['==', ['get', 'alertSeverity'], 'advisory'],
   'rgba(234, 179, 8, 0.60)',
   'rgba(148, 163, 184, 0.20)',
-] as const;
+];
 
-const HALO_COLOR = [
+const HALO_COLOR: ExpressionSpecification = [
   'case',
   ['==', ['get', 'alertSeverity'], 'warning'],
   'rgba(239, 68, 68, 0.14)',
   ['==', ['get', 'alertSeverity'], 'watch'],
   'rgba(251, 146, 60, 0.12)',
   'rgba(234, 179, 8, 0.10)',
-] as const;
+];
 
-const DOT_COLOR = [
+const DOT_COLOR: ExpressionSpecification = [
   'case',
   ['==', ['get', 'alertSeverity'], 'warning'],
   'rgba(239, 68, 68, 0.92)',
   ['==', ['get', 'alertSeverity'], 'watch'],
   'rgba(251, 146, 60, 0.92)',
   'rgba(234, 179, 8, 0.90)',
-] as const;
+];
 
 function CountryLayer({ country }: { country: GccCountry }) {
   const { data: alerts } = useGccCountryAlerts(country);
