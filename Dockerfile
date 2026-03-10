@@ -49,7 +49,7 @@ COPY --from=builder /app/client/dist ./public
 COPY --from=builder /app/server/src/news_feeds.json ./
 
 # Copy static data files
-COPY --from=builder "/app/server/src/Data/Kml Military bases.kml" "./Data/Kml Military bases.kml"
+COPY --from=builder /app/server/src/Data/military-bases.kml ./Data/military-bases.kml
 RUN mkdir -p ./Data
 
 # Expose port

@@ -37,7 +37,7 @@ function styleToCategory(styleUrl: string): BaseCategory {
 export function getMilitaryBasesGeoJSON(): FeatureCollection {
   if (_cache) return _cache;
 
-  const filePath = path.join(__dirname, '../../../Data/Kml Military bases.kml');
+  const filePath = path.join(__dirname, '../../../Data/military-bases.kml');
   const xml = fs.readFileSync(filePath, 'utf-8');
 
   type Ev =
