@@ -1,12 +1,12 @@
 # Multi-stage build for Radar
 
 # Stage 1: Build everything (using monorepo structure)
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies for native modules (like DuckDB)
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy root package files and workspace configs
 COPY package*.json ./
@@ -27,7 +27,7 @@ RUN npm run build:client
 RUN npm run build:server
 
 # Stage 2: Production image
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
