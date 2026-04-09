@@ -52,12 +52,13 @@ jobs:
             cd ~/radar
 
             echo "Pulling latest code..."
-            if [ -d ".git" ]; then
-              git fetch origin
-              git reset --hard origin/main
-            else
-              git clone https://github.com/Syntax-Error-1337/radar.git .
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/Syntax-Error-1337/radar.git
             fi
+
+            git fetch origin
+            git reset --hard origin/main
 
             echo "Stopping containers..."
             docker-compose down || true
