@@ -61,17 +61,17 @@ jobs:
             git reset --hard origin/main
 
             echo "Stopping containers..."
-            docker-compose down || true
+            docker compose down || true
 
             docker image prune -f
 
             echo "Building and starting containers..."
-            docker-compose up -d --build
+            docker compose up -d --build
 
             echo "Waiting for application to start..."
             sleep 10
 
-            docker-compose ps
+            docker compose ps
 
             echo "=== Deployment complete ==="
           ENDSSH
